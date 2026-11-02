@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">S26 Download Organizer</string>
+    <string name="build_identifier">Build 1</string>
+    <string name="foundation_status">Foundation ready</string>
+    <string name="foundation_description">File organization is not active yet. This build does not access or change your downloads.</string>
+    <string name="development_notice">Early development build · Foundation and cloud CI/CD</string>
+</resources>
