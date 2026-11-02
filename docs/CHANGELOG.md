@@ -90,3 +90,13 @@ acceptance is pending KroflaFPS's testing; CI cannot prove Samsung storage behav
   Packaged app ID, versionCode 2/versionName 0.2.0, minimum API 26, target API 37,
   launcher, and explicit permission allowlist were verified.
 - No on-device Build 2 execution or acceptance is claimed.
+
+### Build 2 published verification
+- Opened [PR #2](https://github.com/KroflaFPS/s26-download-organizer/pull/2) from
+  `feat/build-2-storage-inventory` against main; left unmerged for owner review.
+- [Actions implementation run](https://github.com/KroflaFPS/s26-download-organizer/actions/runs/41518395309)
+  at `b6e5410` passed wrapper validation, JVM tests, Android lint and assembleDebug.
+  Confirmed successful uploads and non-expired `s26-download-organizer-build-2-debug`
+  and `build-2-verification-reports` artifacts. Artifacts are retained for 14 days.
+- Samsung permission handling, real Downloads inventory and the read-only device
+  acceptance checklist remain for KroflaFPS to verify; no device acceptance is marked complete.

@@ -33,7 +33,8 @@ are implemented; device acceptance and published CI evidence are tracked separat
 - [x] Add permission setup, explicit API 26–29 gating, lazy inventory UI and Refresh.
 - [x] Add temporary-fixture, policy, screen-state and source/merged-manifest tests.
 - [x] Verify Build 2 JVM tests/lint/debug APK in the cloud workspace.
-- [ ] Confirm a successful published Build 2 Actions run and APK artifact.
+- [x] Confirm a successful published Build 2 Actions run and APK artifact
+  ([implementation run](https://github.com/KroflaFPS/s26-download-organizer/actions/runs/41518395309)).
 - [ ] Owner completes the Build 2 acceptance checklist on the S26 Ultra.
 
 ## 3. Safe move engine and persistent operation journal
