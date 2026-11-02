@@ -1,8 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">S26 Download Organizer</string>
-    <string name="build_identifier">Build 1</string>
+    <string name="build_identifier">Build 2</string>
     <string name="foundation_status">Foundation ready</string>
-    <string name="foundation_description">File organization is not active yet. This build does not access or change your downloads.</string>
-    <string name="development_notice">Early development build · Foundation and cloud CI/CD</string>
+    <string name="foundation_description">File organization is not active. Build 2 only lists Downloads metadata; it never changes your files.</string>
+    <string name="development_notice">Early development build · Read-only Downloads inventory</string>
+    <string name="permission_title">Storage access required</string>
+    <string name="permission_explanation">All Files Access is intended for organizing downloaded files in later builds. Build 2 only reads filenames, types, sizes and modification dates from the top level of Downloads. It does not read file contents, scan inside folders, or move, copy, rename or delete files.</string>
+    <string name="permission_navigation">Tap Open Settings and allow access for S26 Download Organizer. If a list of apps opens, choose this app. Return here when finished; access will be checked again.</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="settings_unavailable">Storage settings could not be opened. Open your phone’s Settings, find Special app access → All files access, and choose S26 Download Organizer. Return here to check access again.</string>
+    <string name="unsupported_android">This build’s read-only inventory requires Android 11 or newer. On Android 8–10, the dashboard is available but Downloads access is not supported. No legacy storage permission is requested.</string>
+    <string name="loading_inventory">Checking storage and reading Downloads…</string>
+    <string name="refresh">Refresh</string>
+    <string name="retry">Retry</string>
+    <string name="empty_inventory">Downloads is empty. Files added later will appear when you refresh.</string>
+    <string name="no_available_entries">No available entries could be listed. Some items changed or could not be read. Try refreshing.</string>
+    <plurals name="partial_inventory">
+        <item quantity="one">%d item disappeared or had unavailable metadata during this scan. This list may be incomplete; refresh to try again.</item>
+        <item quantity="other">%d items disappeared or had unavailable metadata during this scan. This list may be incomplete; refresh to try again.</item>
+    </plurals>
+    <plurals name="inventory_count">
+        <item quantity="one">%d entry in Downloads</item>
+        <item quantity="other">%d entries in Downloads</item>
+    </plurals>
+    <string name="type_file">File</string>
+    <string name="type_directory">Folder · contents not scanned</string>
+    <string name="type_link">Symbolic link · not followed</string>
+    <string name="type_other">Other entry</string>
+    <string name="type_unavailable">Type and metadata unavailable</string>
+    <string name="metadata_unavailable">Unavailable</string>
+    <string name="extension_value">Extension: %1$s</string>
+    <string name="size_value">Size: %1$s bytes</string>
+    <string name="size_unavailable">Size: Unavailable</string>
+    <string name="modified_value">Modified: %1$s</string>
+    <string name="error_access">Downloads could not be read. Check All Files Access in your phone’s Settings, return here, and retry.</string>
+    <string name="error_storage">Shared storage is unavailable. Unlock your phone and try again when storage is available.</string>
+    <string name="error_missing">The Downloads folder is unavailable. Check Downloads in My Files, then return and retry. This app will not create the folder.</string>
+    <string name="error_read">Downloads could not be listed. Check that it is available in My Files, then retry.</string>
 </resources>
