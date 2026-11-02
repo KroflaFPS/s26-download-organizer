@@ -30,6 +30,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.kroflafps.s26downloadorganizer.operations.OperationPolicy
+import com.kroflafps.s26downloadorganizer.operations.OperationHistoryEntry
 import com.kroflafps.s26downloadorganizer.R
 import com.kroflafps.s26downloadorganizer.domain.EntryType
 import com.kroflafps.s26downloadorganizer.domain.InventoryEntry
@@ -43,6 +45,12 @@ fun DashboardScreen(
     state: InventoryScreenState,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
+    operations: OperationsScreenState,
+    onReviewMove: (InventoryEntry) -> Unit,
+    onReviewUndo: (OperationHistoryEntry) -> Unit,
+    onRecovery: () -> Unit,
+    onDismissOperation: () -> Unit,
+    onConfirmOperation: (Boolean, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // One bounded lazy list handles both the header and rows, including large fonts.
@@ -129,15 +137,20 @@ fun DashboardScreen(
                     }
                 }
             }
+            item(key = "operations-header") { OperationsHeader(operations, onRecovery) }
+            items(operations.history, key = { "operation-${it.record.id}" }) { item ->
+                OperationHistoryRow(item, operations.busy, onReviewUndo)
+            }
             if (state is InventoryScreenState.Loaded) {
-                items(state.inventory.entries, key = { it.id }) { entry -> InventoryRow(entry) }
+                items(state.inventory.entries, key = { it.id }) { entry -> InventoryRow(entry, operations.busy, onReviewMove) }
             }
         }
     }
+    operations.confirmation?.let { OperationConfirmationDialog(it, operations.busy, onDismissOperation, onConfirmOperation) }
 }
 
 @Composable
-private fun InventoryRow(entry: InventoryEntry) {
+private fun InventoryRow(entry: InventoryEntry, busy: Boolean, onReview: (InventoryEntry) -> Unit) {
     val type = stringResource(when (entry.type) {
         EntryType.FILE -> R.string.type_file
         EntryType.DIRECTORY -> R.string.type_directory
@@ -167,6 +180,9 @@ private fun InventoryRow(entry: InventoryEntry) {
                     Text(if (bytes != null) stringResource(R.string.size_value, bytes) else stringResource(R.string.size_unavailable))
                 }
                 Text(stringResource(R.string.modified_value, modified ?: unknown))
+                if (entry.type == EntryType.FILE && entry.sizeBytes != null && entry.modifiedAtMillis != null && OperationPolicy.eligibleName(entry.name)) {
+                    Button(onClick = { onReview(entry) }, enabled = !busy) { Text("Review move") }
+                }
             }
         }
     }

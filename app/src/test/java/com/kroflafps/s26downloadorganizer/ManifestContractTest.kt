@@ -34,9 +34,12 @@ class ManifestContractTest {
     @Test fun sourceOnlyDeclaresApprovedAllFilesPermissionAndNoBackgroundComponents() {
         val source = manifest("s26.sourceManifest")
         assertEquals(setOf("android.permission.MANAGE_EXTERNAL_STORAGE"), names(source, "uses-permission"))
-        for (tag in listOf("uses-permission-sdk-23", "uses-permission-sdk-m", "service", "receiver", "provider")) {
+        for (tag in listOf("uses-permission-sdk-23", "uses-permission-sdk-m", "receiver", "provider")) {
             assertEquals("Unexpected source $tag", 0, elements(source, tag).size)
         }
+        val removal = elements(source, "service").single()
+        assertEquals("androidx.room.MultiInstanceInvalidationService", removal.getAttributeNS(android, "name"))
+        assertEquals("remove", removal.getAttributeNS("http://schemas.android.com/tools", "node"))
         checkLauncher(source)
     }
 
@@ -57,7 +60,9 @@ class ManifestContractTest {
         assertEquals("signature", elements(merged, "permission").single().getAttributeNS(android, "protectionLevel"))
         assertEquals("$applicationId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION", names(merged, "permission").single())
         assertEquals(applicationId, merged.documentElement.getAttribute("package"))
-        assertEquals("2", merged.documentElement.getAttributeNS(android, "versionCode"))
+        assertEquals("4", merged.documentElement.getAttributeNS(android, "versionCode"))
+        val gate = elements(merged, "meta-data").single { it.getAttributeNS(android, "name") == "$applicationId.MUTATIONS_ENABLED" }
+        assertEquals("false", gate.getAttributeNS(android, "value"))
         checkLauncher(merged)
     }
 }

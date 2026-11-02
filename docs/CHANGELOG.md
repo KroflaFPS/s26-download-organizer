@@ -100,3 +100,99 @@ acceptance is pending KroflaFPS's testing; CI cannot prove Samsung storage behav
   and `build-2-verification-reports` artifacts. Artifacts are retained for 14 days.
 - Samsung permission handling, real Downloads inventory and the read-only device
   acceptance checklist remain for KroflaFPS to verify; no device acceptance is marked complete.
+
+
+### Build 3 — Journaled operations engineering subset (not operationally released)
+- Baseline: Build 2 merged via PR #2 at 86082b4b887a82d66cef41ea8072428d50f7f254
+  and confirmed working on the S26 Ultra/Android 17 by KroflaFPS.
+- Preserved the proven toolchain, inventory, permission flow, theme and launcher.
+  Incremented versionCode to 3/versionName to 0.3.0 and labeled APKs engineering-only.
+- Verified official Room/KSP guidance and added stable Room/plugin 2.8.5, KSP2
+  2.3.4 and test-only Robolectric 4.16.1 without upgrading Kotlin or AGP.
+- Added app-private Room journal/schema v1, immutable operation evidence, short
+  revision/event transactions, unique source/Undo claims, visible history and
+  fail-closed missing-migration behavior. No destructive migration fallback.
+- Added a portable manual coordinator and recovery/Undo logic with explicit
+  intent/copy/verification/publication/removal/sync/finalization phases. Tests use
+  actual exclusive create/hard-link publication, 64 KiB copying, SHA-256 and sync
+  in disposable fixtures; conditional removal is a fixture-only closed-world model.
+- Added conservative COPY_ONLY, FAILED_SAFE and RECOVERY_REQUIRED outcomes,
+  idempotent bounded reconciliation and preserved tracked/ambiguous staging files.
+- Added Review move/Undo confirmation, finished-download warning, busy/error
+  states and real Room history, preserving the existing dashboard design.
+- Added two independent shipping safety gates: constant-disabled authorization
+  and an Android adapter with no writer/removal/trusted-recovery capability.
+  No real user-file mutation or Undo is enabled, even if stable-signed.
+- Added backup/device-transfer exclusions for the operation journal and removed
+  Room's unused multi-instance invalidation service from the merged manifest.
+- Added extensive fixture/fault-injection tests, actual Room reopen integration,
+  schema-identity checks, mutation-gate tests and existing inventory regressions.
+- Preserved CI tests/lint/APK checks; added versioned-schema and disposable-key
+  signing checks. Optional stable signing is protected, main/manual only, pinned
+  to an owner certificate, and fails without complete credentials. PRs need no secrets.
+- Documented signing setup, retention risks, deletion TOCTOU, sync limitations,
+  unimplemented Android capabilities and exact read-only device acceptance steps.
+
+Build 3 is a conservative partial delivery. Stable owner signing, independent
+Android filesystem audit and hardware acceptance are pending. No automatic
+movement, watching, WorkManager, foreground/boot service, classification, routing,
+notifications, remote backup or full UI redesign is implemented. Tests and file
+sync requests do not prove sudden-power-loss or universal crash safety.
+
+
+### Build 3 local verification
+- `testDebugUnitTest lintDebug assembleDebug` passed: 73 JVM tests, zero failures,
+  errors or skips, including native-SQLite Room integration and phase-boundary cases.
+- Three disposable-key signing tests passed: repeated-key certificate continuity,
+  missing-credential failure, pin-mismatch failure and temporary-private-material cleanup.
+- Lint: zero errors, five advisory warnings (approved all-files policy and newer
+  compiler/coroutines/KSP versions available). No lint checks were suppressed.
+- APK debug signature, 16 KB ZIP alignment, application/version/SDK/launcher/
+  permission metadata and absence of fixture-only mutation adapters were verified.
+- actionlint validated the workflow. No owner-provisioned signing, emulator,
+  device installation, Android 17 mutation test or sudden-power-loss test was performed.
+
+
+### Build 3.1 — Targeted audit repairs and safe release preparation
+- Continued PR #3 / feat/build-3-safe-operations from expected head
+  05de66c632233991b963262bce19a26d3d30d1c6; no merge or Builds 4–7 work.
+- Version code/name 4/0.3.1; Build 3.1 engineering dashboard and artifact names.
+- Removed recovery's automatic completion inference from source disappearance,
+  including stale removal/sync flags. Ambiguity remains RECOVERY_REQUIRED;
+  copy-only and completion remain distinct and copy-only never enables Undo.
+- Durable bounded keyset pagination advances past large/permanent unresolved
+  records, with a fixed cycle ceiling, visible budget deferral and row-failure
+  reporting. No unbounded startup hashing or repeated movement/cleanup.
+- Strengthened journal revision, immutable evidence, legal transition, monotone
+  phase-proof, new-intent, source/Undo claim and event-tail consistency checks.
+  Duplicate Undo request IDs return their existing result without repeating I/O.
+- Exported schema 2, preserving schema 1. Explicit migration preserves records,
+  adds cursor state and quarantines legacy inferred completions without erasure.
+- Added public-API Android no-follow descriptor read/hash observations beneath
+  approved roots. SHA-256 streaming is capped, cancellation/permission-aware and
+  closes descriptors. All publication, create/write and source deletion methods
+  remain unavailable; no user-file mutation is enabled.
+- Hardened signing preflight with trusted CI-context checks and compiled APK
+  mutation-disabled marker verification. Added disposable-key/context/marker and
+  test-adapter packaging checks. No owner credentials created or uploaded.
+- Added migration/recreation, recovery starvation, external disappearance,
+  interrupted removal, event rollback, Undo conflict and bounded-reader regressions.
+- Documented public API research, explicit artifact matrix and remaining device,
+  signing, no-clobber and conditional-removal blockers. Independent audit and
+  real-device acceptance remain pending. No operational APK is approved.
+
+Verification for this revision is recorded with the final PR report. Tests model
+process termination and isolated I/O; they do not establish Android shared-storage
+crash durability or power-loss safety. Earlier Build 3 descriptions above are
+historical; the stricter Build 3.1 recovery rules supersede completion inference.
+
+### Build 3.1 local verification
+- JVM: 87 tests passed, zero failures/errors/skips, including native SQLite Room
+  migration/recreation, event-transaction rollback and persisted cursor tests.
+- Six Python signing/packaging tests passed using disposable credentials only.
+- Kotlin/Compose/KSP compilation, testDebugUnitTest, lintDebug and assembleDebug
+  succeeded. Lint has zero errors and five unchanged advisory warnings.
+- Workflow actionlint, Room schema versioning, APK signature, 16 KiB alignment,
+  source/merged manifest contracts and absence of test-only adapters verified.
+- No owner signing credentials, emulator/device tests, hardware crash tests or
+  real-file operational tests were used. All owner-facing APKs remain disabled.

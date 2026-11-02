@@ -1,242 +1,255 @@
 # S26 Download Organizer architecture
 
-## Build 1: merged and owner-tested foundation
+## Baseline and current release status
 
-One Android application module (`:app`) with application ID
-`com.kroflafps.s26downloadorganizer`. `MainActivity` hosts a Material 3 Compose
-dashboard and system light/dark themes. The original dashboard identified **Build 1**,
-reported **Foundation ready**, and explained that file organization was inactive.
-It supports screen insets, scrolling, and system text scaling.
+Build 1 established the launchable Compose application and CI. Build 2 was merged
+at `86082b4b887a82d66cef41ea8072428d50f7f254` via PR #2 and confirmed working on the
+S26 Ultra/Android 17 by KroflaFPS. Build 3 preserves that permission/inventory code.
 
-Build 1's source manifest declares no permissions, services, or receivers. The
-app has no file access, monitoring, workers, classification, routing, file
-operations, journal, Undo, or notifications. It has no backend, authentication,
-telemetry, or analytics.
-The JVM tests check the source manifest's foundation boundary and launcher
-declaration; they do not test Android storage or device runtime behavior.
+**Build 3.1 is a gated engineering subset. No real Android file mutation or Undo is
+enabled.** Implemented: coordinator/state model, Room journal, conservative
+reconciliation logic, review/history UI and realistic disposable-fixture tests.
+Not implemented/approved: a production Android shared-storage writer with safe
+anchored I/O/publication/removal semantics, owner signing credentials and hardware
+recovery/durability acceptance. The shipping `AndroidOperationFiles` adapter
+rejects all writes and cannot conditionally unlink. Bounded descriptor-backed
+recovery reads are implemented; unsupported roots, identities or /proc access
+return unverifiable evidence. Android/FUSE validation is still pending. Do not describe these blocked capabilities as an operational move feature.
 
-Standard AndroidX dependencies contribute startup initializers, a profile
-installer receiver, and an app-scoped signature permission to the merged
-manifest. These do not grant storage access or implement organizer automation.
+## Toolchain and persistence dependencies
 
-## Build 2: implemented read-only inventory (device acceptance pending)
+One `:app` module; application ID `com.kroflafps.s26downloadorganizer`.
+AGP 9.5.0, Gradle 9.8.2, JDK 21, built-in Kotlin/Compose compiler 2.2.10,
+Compose BOM 2026.09.00, Material 3, AndroidX Core 1.19.1, Activity 1.13.0,
+Lifecycle 2.11.0, coroutines 1.10.2, compile/target API 37, minimum API 26 and
+JUnit 4.13.2 are retained. Version code/name: 4/0.3.1.
 
-Build 1 was merged through PR #1 and tested on the owner's S26 Ultra, as reported
-by KroflaFPS. Build 2 preserves the module, theme, launcher, foundation status and
-proven toolchain. It increments versionCode to 2/versionName to 0.2.0 and labels
-the dashboard Build 2. It adds only the MANAGE_EXTERNAL_STORAGE source permission,
-metadata inventory, lifecycle state, tests, and Build 2 artifact names.
+Room 2.8.5, Room Gradle plugin 2.8.5 and **KSP2 2.3.4** add journal generation and
+schema export without replacing AGP's Kotlin plugin. Official guidance checked
+before selection: [Room releases/configuration](https://developer.android.com/jetpack/androidx/releases/room),
+[KSP migration](https://developer.android.com/build/migrate-to-ksp),
+[built-in Kotlin](https://developer.android.com/build/migrate-to-built-in-kotlin),
+[KSP 2.3.4](https://github.com/google/ksp/releases/tag/2.3.4), and
+[Room migrations](https://developer.android.com/training/data-storage/room/migrating-db-versions).
+KSP1 is unsuitable for AGP 9. Runtime/compiler POMs and actual generation/compilation
+validate this selection. Robolectric 4.16.1/native SQLite is test-only, not a device.
 
-### Permission and compatibility
+## Retained inventory boundary
 
-`StorageAccessAdapter` guards API 30 calls and checks
-`Environment.isExternalStorageManager()`. API 26–29 intentionally show an
-unsupported-inventory explanation; no legacy read permission is declared.
-A tap opens the package-URI app All Files Access screen, falling back in order
-to the general All Files Access list and application details. Activity-not-found
-and security failures are handled, with manual instructions if none opens.
-There are no unsolicited Settings launches or ordinary runtime permission dialogs.
+On API 30+, `StorageAccessAdapter` checks `Environment.isExternalStorageManager()`.
+Settings opens only on a tap: package-specific All Files Access, general list,
+then app details. Denial/cancellation is never treated as a grant. Resume/Refresh
+recheck access; pause cancels inventory and clears its screen state. API 26–29
+show an explanation and request no legacy permission.
 
-Permission is rechecked on every resume, refresh, before the repository scan,
-and before results enter screen state. Settings returning successfully is never
-proof of access. Pause cancels work and clears the inventory; denial or revocation
-returns to setup. No inventory or grant assumption is persisted. Permission changes
-while continuously foregrounded are detected on refresh or the next resume,
-not through observers or polling.
+`AndroidDownloadsRepository` resolves primary Downloads with Android Environment
+APIs and runs metadata scans on Dispatchers.IO. One-level NIO attributes use
+NOFOLLOW_LINKS. Links are listed, not traversed. Missing/inaccessible entries,
+empty sources, revoked access and storage failures retain their Build 2 behavior.
+Ordering is newest modification first, then exact name and normalized identity.
+Normalized Path components exclude Organized/ and descendants, not sibling prefixes.
+No SD card/work-profile/virtual-provider inventory or recursive scanning is added.
 
-This broad permission is intentional for a personal sideloaded organizer, not a
-claim of Play Store distribution eligibility. OEM Settings pages and Android 17
-shared-storage behavior still need owner testing. Only primary shared Downloads
-is supported; removable storage, virtual providers, and work profiles are outside
-Build 2. Android-protected directories are not promised accessible by the grant.
+## Operation boundaries and roots
 
-### Read-only storage boundary
+`operations` contains platform-independent records, policies, ports, coordinator
+and recovery logic. `history` isolates Room. `storage` retains inventory/adapters;
+`ui` handles observable state/presentation. `OrganizerApplication` owns one journal
+and one coordinator. No DI framework, WorkManager or service is introduced.
+Room's unused multi-instance invalidation service is explicitly removed from the
+merged manifest; source/merged allowlist tests continue rejecting runtime services.
 
-`AndroidDownloadsRepository` resolves Downloads using
-`Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS)` and resolves
-Organized relative to Android's primary external-storage root. These deprecated
-but supported path APIs are isolated here for direct filesystem access with the
-verified special grant; no paths are constructed in Compose. Mounted and
-mounted-read-only storage can be inventoried; unavailable storage is an error.
-No code creates Downloads or Organized if absent.
+The only forward source is an explicitly selected immediate regular file in
+primary Downloads. The sole Build 3 forward target is primary Organized/Other/.
+Undo reverses an eligible committed operation into Downloads. No classification,
+category selection, routing customization or batch selection exists. Reject
+malformed/non-normalized/relative/outside paths, directories, symlinks, unknown
+identity, unexpected changes and known temporary/in-progress names. A user must
+confirm downloading is finished; that is not a formal readiness guarantee.
 
-`ReadOnlyInventoryScanner` uses a closeable NIO DirectoryStream and BasicFileAttributes
-with NOFOLLOW_LINKS. It lists only immediate children. A symbolic-link source
-root is rejected; child links are described using their own metadata and never
-traversed. No content streams, APK parsers, media decoders, copy/move/delete,
-rename, creation, or metadata-writing operations exist in production inventory
-code. Domain entries contain only identity/path, original name, entry type,
-nullable file size and modification time; extensions come only from filenames.
+The coordinator requires its adapter to enforce actual rooted identity and
+no-follow I/O, not just lexical checks. The Android adapter cannot currently
+certify those mutation semantics and fails closed. Fixture roots are private,
+exclusively controlled test directories; their synchronization assumptions must
+not be generalized to user-writable Android shared storage.
 
-Source exclusion uses absolute normalized Path components and Path.startsWith,
-not string-prefix matching: root and descendants are excluded, similarly named
-siblings are not. It is a lexical policy, not a symlink-target resolver. Build 2
-prevents traversal by rejecting link roots and never following child links;
-future configurable roots/mutation engines will need their own alias/race review.
+## No-overwrite publication and verification model
 
-Missing/changed entries are skipped with a visible partial count. Unreadable
-entry metadata is labeled unavailable and included in that count. A directory
-listing/iteration failure discards partial results and shows an error. Missing
-timestamps sort last; otherwise sorting is descending modification time, then
-exact filename and normalized identity in locale-independent lexical order.
-Directories have no recursive size. Zero-byte ordinary files remain zero.
-A scan is a changing filesystem snapshot, not an atomic inventory or readiness
-claim. Large lists are held as metadata only and presented with LazyColumn.
+Intent precedes the first mutation. A journaled `.s26-<operation UUID>.part` is
+exclusively created before bounded copying. The real-I/O fixture adapter uses a
+64 KiB buffer, FileChannel.force(true), SHA-256 and before/after identity, size,
+mtime/ctime evidence. The coordinator verifies copied size/hash, rereads source
+evidence and revalidates before removal. The mutation I/O implementations remain
+**fixture-only**; the APK has no fallback path-based writer. The production
+read-only inspector uses a 64 KiB buffer, SHA-256, descriptor fstat evidence,
+no-follow child opens and post-read identity/stamp/path checks. It reads no more
+than its allowance plus one growth/EOF sentinel per file, checks permission and
+cancellation during reads, and never treats a snapshot as a deletion receipt.
+See the [public API review](ANDROID_STORAGE_REVIEW.md) for its limits.
 
-### State, threading, and tests
+Fixture publication uses atomic exclusive hard-link creation to a new final
+name; existing names cause retry with `filename (1).ext`, etc. It never renames
+onto an occupied destination, truncates it or uses replacement options. Candidate
+intent is saved before each publication attempt. Numbering preserves the last
+extension, extensionless/dotfile names and Unicode; an overlong stem is shortened
+at UTF-8 code-point boundaries. Impossible suffix/path budgets or exhausted
+collision space fail closed. Failed exclusive stage allocation never adopts an
+existing file. Test races use actual concurrent filesystem link calls.
 
-`InventoryViewModel` exposes StateFlow for checking, permission-required,
-unsupported, loading, loaded (including empty), and error states. A repository
-port keeps Android out of state tests. Refreshes coalesce while active; cancellation
-and a generation check prevent stale results. Repository Mutex serialization
-prevents an old blocking filesystem call and a resumed scan from overlapping.
-All enumeration, stat calls and sorting run on Dispatchers.IO, with cooperative
-cancellation between entries and explicit stream closure. Compose only formats
-visible rows and sends events; it has no filesystem access.
+A published hard-link staging alias is deliberately retained and journaled,
+including after a fixture completion. There is no path-based automatic cleanup,
+even of apparently app-owned names. This is additional tracked output, not a
+claim of a polished operational storage layout. Android/FUSE hard-link support
+is not assumed; no production publication adapter is approved. A future adapter
+using non-atomic final publication must explicitly journal partial final output
+and preserve the source until its own safety proof is accepted.
 
-Added lifecycle runtime Compose/ViewModel dependencies reuse the existing 2.11.0
-version; explicit coroutines core/test 1.10.2 support cancellation/state and JVM
-tests. No DI or state framework is added. Tests use temporary fixtures or fake
-repositories only: metadata conversion, names/extensions, sorting, exclusions,
-empty/mixed/changing/inaccessible sources, symlinks, failures, revocation,
-refresh coordination, cancellation, and recovery. Manifest tests inspect both
-source and AGP's actual merged debug manifest with explicit permission/component
-allowlists. These tests do not establish device-specific permission behavior.
+## Source deletion and durability
 
-## Toolchain
+A metadata/hash check followed by path deletion has a TOCTOU gap: another app
+could replace the path between those calls. Neither a quick check, advisory lock,
+ATOMIC_MOVE nor a private-looking filename fixes this. There is no approved
+Android compare-identity-and-unlink primitive here. The shipping adapter cannot
+delete; the fixture's synchronized removal only models that contract in a closed
+world. Core tests of COMPLETED do not establish a real Android safe-delete capability.
 
-| Component | Selection |
-| --- | --- |
-| Android Gradle Plugin | 9.5.0 |
-| Gradle wrapper | 9.8.2, distribution SHA-256 pinned |
-| JDK and JVM target | 21 |
-| Kotlin / Compose compiler plugin | 2.2.10 / 2.2.10 |
-| Compose BOM | 2026.09.00 (Material 3 1.4.0) |
-| AndroidX Core / Activity Compose / Lifecycle runtime | 1.19.1 / 1.13.0 / 2.11.0 |
-| JUnit | 4.13.2 |
-| Compile SDK / target SDK | Android 17, API 37 (stable base platform `android-37.0`) |
-| Build tools | 37.0.0 |
-| Minimum SDK | API 26 (Android 8.0) |
+Without conditional removal or directory-sync support, verified publication must
+remain **COPY_ONLY**, with the original retained and recovery needed. COPY_ONLY
+is not a move and never enables Undo. File sync, directory sync, copied bytes,
+verified bytes, publication, removal, source-directory sync and journal completion
+are distinct evidence. SQLite requests synchronous=FULL; this and FileChannel
+sync are requests to the OS/storage stack, not universal sudden-power-loss guarantees.
+Filesystem and SQLite never share an atomic transaction.
 
-All dependencies are stable releases. Versions were checked against Google
-Maven, Maven Central, the Android SDK repository, and Gradle release metadata.
-AGP 9.5.0 requires Gradle 9.6.0 or later; this project uses 9.8.2. AGP supplies
-Kotlin 2.2.10 internally, so a separate `org.jetbrains.kotlin.android` plugin is
-unnecessary. The Compose compiler plugin matches that Kotlin version. API 37 is
-the newest stable major target SDK; Build 1 needs no minor SDK extension APIs.
+## Journal, schema and concurrency
 
-API 26 provides a reasonable modern baseline for later storage adapters without
-restricting the app to the target phone. The Galaxy S26 Ultra on Android 17 is
-the primary owner-tested device. Compilation is not evidence of successful
-installation or runtime testing on that device.
+App-private Room database `operation-journal.db`, exported schema version **2**:
+operations, append-only phase events and a singleton durable recovery cursor. Records include UUID/type/related move,
+source/target/stage paths, original name, identity/change evidence, size/hash,
+phase/error, recovery flag, timestamps/revision, copied/verified/published/sync/
+removal evidence. Complete contents are never stored. Sensitive path/hash metadata
+stays local. No analytics or network permission exists.
 
-The version catalog owns dependency versions. CI uses the wrapper, JDK 21, and
-explicit SDK packages, runs JVM tests and Android lint, assembles the debug APK,
-and uploads it with verification reports. Ordinary Android debug signing is
-sufficient; no release keystore or GitHub secret is required. Debug signing keys
-may differ between CI runs, so update installation is not guaranteed (see README).
+Short transactions claim intent, or compare-and-set the revision/update the row
+and append its phase event. Saves validate the previous event tail, legal phase
+transitions, monotone evidence, immutable paths/source identity/hash, source-claim
+retention and precise revision increments. New intents cannot inject completion
+evidence; Undo claims require an eligible parent in the same transaction. They
+never span copying. A unique source token blocks
+already-active/handled identity requests; a unique related ID blocks repeated
+Undo. UUID replay returns the same record without repeating writes. One coordinator
+serializes user actions; DB constraints also protect separate coordinator instances.
+Journal read/write/acknowledgment failures stop further operations and leave
+last-known evidence for reconciliation. Room updates run off the main thread.
 
-## Future hybrid organizer (planned, not implemented)
-
-The app is an offline organizer. Opportunistic event detection will schedule
-bounded processing; WorkManager will provide deferred reconciliation to discover
-missed downloads. Neither file events nor WorkManager imply immediate execution
-or uninterrupted observation. Reconcile after interruptions and access changes.
-
-A permanently running `dataSync` foreground service is **not** a dependency.
-Android background execution restrictions make it unsuitable as the foundation
-of indefinite monitoring. No organizer service, boot receiver, or worker ships
-in Build 1 or Build 2.
-
-Planned flow:
+Normal sequence (MOVE and UNDO share phases):
 
 ```text
-Download events --+-> candidate processing -> readiness -> classification -> routing
-Reconciliation --+                                                           |
-                                                               journaled operations
-                                                                             |
-                                                               history / Undo / batches
+PREPARED -> ALLOCATING -> COPYING -> COPY_VERIFIED -> DESTINATION_COMMITTED
+DESTINATION_COMMITTED -> COPY_ONLY (retain source; do not resume deletion)
+DESTINATION_COMMITTED -> SOURCE_REMOVAL_PENDING -> SOURCE_REMOVED -> COMPLETED
+Any ambiguous in-flight phase -> RECOVERY_REQUIRED
 ```
 
-### Storage and destination policy
+Any ambiguous failure becomes RECOVERY_REQUIRED. FAILED_SAFE requires evidence
+that the original is intact and no output remains (or no mutation was attempted).
+COMPLETED requires recorded verification/publication, conditional removal,
+source-directory synchronization and journal finalization. It is never inferred
+from a successful copy alone. Events retain phase chronology by revision even
+when wall-clock times are not useful; history prioritizes unresolved records.
 
-All-files access (`MANAGE_EXTERNAL_STORAGE`) is the **provisional primary storage
-strategy for later builds**, subject to real-device validation and distribution
-policy. Build 2 implements an explicit owner-facing access flow and denial/revocation
-handling for read-only inventory. Future write behavior remains unimplemented.
-Storage adapters isolate Android-specific APIs from pure domain policies.
-Build 1 neither declared this permission nor requested it.
+Schema 1 remains unchanged. Explicit migration 1→2 creates the cursor table and
+quarantines legacy COMPLETED rows lacking adapter-confirmed removal, appending
+a RECOVERY_REQUIRED event, clearing completion time and preserving claims/data.
+Already confirmed rows and pending operations retain their evidence and events.
+Native SQLite tests reopen/migrate persisted fixture data and verify the export
+identity hash. Every future schema change must retain exports, increment the
+version and add a reviewed/tested versioned migration. Missing migrations fail closed. There is no
+destructive migration or automatic database reset. CI detects exported schema
+drift; tests compare the Room database identity hash to the versioned export.
 
-The intended download source is `/storage/emulated/0/Download/`. All organized
-files will live under the unified destination `/storage/emulated/0/Organized/`:
+## Bounded, evidence-only reconciliation
 
-- `Installers/`
-- `Documents/`
-- `Images/`
-- `Audio/`
-- `Videos/`
-- `Archives/`
-- `Other/`
+Launch or **Check recovery** considers at most 20 pending records and a 64 MiB
+aggregate verification budget (source/stage/destination), plus at most one
+growth/EOF sentinel per observation. A persistent UUID keyset cursor with a
+fixed cycle ceiling advances even for oversized, unchanged, or row-write-failed
+records. New inserts cannot indefinitely extend the active cycle. Each call
+processes one page and wraps at most once; subsequent launches/manual checks
+continue. Oversized work receives RECOVERY_BUDGET and remains visible for manual
+review; it is not silently abandoned or hashed without a bound. Cancellation
+retains the current position; total database unavailability stops reconciliation.
+Per-row save failures are reported while later rows receive attention. No directory-wide orphan discovery, retry, deletion or Undo
+occurs. Repeated equivalent evidence does not append duplicate transitions.
 
-The organizer must exclude its entire destination root from source observation
-and reconciliation, including when source configuration changes. These paths
-describe the primary device's shared storage; adapters must resolve and validate
-storage locations rather than spread hardcoded filesystem paths across UI code.
+| Evidence | Conservative outcome |
+| --- | --- |
+| Permission missing | Defer; retain journal |
+| Untrusted identity/observation | RECOVERY_REQUIRED; never certify completion |
+| Original intact; no stage/final output | FAILED_SAFE; explicit future retry only |
+| Partial or uncommitted output | Preserve all paths; RECOVERY_REQUIRED |
+| Verified original and destination both present | COPY_ONLY; no automatic removal/Undo |
+| Original absent; verified destination, even with recorded removal/sync flags | RECOVERY_REQUIRED / REMOVAL_UNCONFIRMED; absence is not an app removal receipt |
+| Both original and output missing | Serious unresolved failure |
+| A tracked path contains another file/modified content | Conflict; never replace or silently clean up |
 
-### Safety and file readiness
+Reconciliation never transitions an interrupted row to COMPLETED. A crash can
+separate intent, actual unlink, removal-evidence persistence, directory sync and
+finalization. External deletion/rename or stale flags cannot establish an
+unbroken app-controlled removal chain. Only uninterrupted coordinator execution
+with an adapter-confirmed conditional removal, sync and valid journal succession
+can finalize in the closed-world fixture model. Recovery preserves all remaining
+files; even SOURCE_REMOVED rows stay unresolved. Empty history is honest. Normal SQLite
+reopen and phase-fault simulations are not proof of reboot/power-loss durability.
 
-File events, filename extensions, and a single stable size sample do not prove
-download completion. A later readiness policy will conservatively combine
-temporary-name checks, repeated stability observations, and evidence available
-from storage adapters; uncertain candidates remain deferred. Revalidate the
-source immediately before operating because it may change after classification.
+## Undo and UI
 
-The move engine must record intent and results persistently, handle partial
-failures and process death, verify destination success before any source removal,
-and support recovery and reversible operations. Cross-filesystem operations need
-an explicitly verified copy/commit/removal sequence. Undo must recheck source and
-destination state and preserve files created since the original operation.
+Only a completed forward record with verified published output, recorded removal/
+sync, no recovery flag and no prior reverse request is eligible. Undo rechecks
+organized identity, stamp, size and hash; modified organized files are rejected.
+Its own UUID/related ID, intent, exclusive staging/publication, verification,
+removal policy and recovery are identical to forward operations. Occupied original
+names require explicit unique-name restoration consent or Cancel. There is no
+Replace/Overwrite and no automatic Undo of copy-only results.
 
-Duplicates are preserved: never overwrite or silently delete an existing file.
-Future destination allocation must create unique names with concurrency-safe
-reservation/creation, rather than relying on an existence check followed by a
-potentially overwriting move. Reconciliation and events must converge without
-applying the same operation twice. None of this operational logic exists yet.
+The existing Compose dashboard adds Review move, an explicit finished-download
+warning, gate-aware confirmation, busy/error/copy-only/recovery messages and a
+lazy history (100 records, unresolved first). Actual unresolved count remains
+visible. Pausing clears selection/cancels action work. History and the journal
+are not deleted when storage permission is revoked. Confirm/Undo stay disabled
+in the installed engineering APK; fake success controls/data are not introduced.
 
-### Notifications and history
+## Signing and retention gates
 
-Automatic moves will produce **batched, grouped notifications** to avoid one
-notification per file. Persistent activity history will expose individual
-operations and Undo actions. Notifications are a summary; the operation journal
-is the durable record. Notification permission handling belongs to a later build.
+See [README signing procedure](../README.md#stable-development-signing-and-journal-retention).
+Normal APKs use ephemeral debug signing and are labeled engineering-only. A
+separate protected-environment job can re-sign a verified main/manual build with
+owner-provisioned secrets and verify an independently pinned certificate. PRs
+cannot access that job's secrets through the workflow. Protection requires owner
+configuration of the environment and main-only branch rules; actual provisioning
+has not been verified. The signing script additionally rejects PR/non-main CI
+contexts and requires a unique compiled boolean-false mutation marker. Missing credentials/pin mismatch fail, with no
+stable-signing fallback. Disposable-key tests check this tooling, not owner setup.
+Even the optional stable-signed engineering APK remains mutation-disabled.
 
-## Package boundaries
+Stable signatures support updates, not protection from uninstall/Clear data,
+device loss or hardware failure. Journal backup/device transfer are excluded;
+restoring a stale journal onto a different filesystem could be dangerous. No
+remote backup/export system is implemented. Do not uninstall a nonempty journal.
 
-Build 2 uses `com.kroflafps.s26downloadorganizer.MainActivity`, `ui`, `ui.theme`,
-`domain`, and `storage`.
-There are no empty packages or speculative implementations. These boundaries
-stay within one module; planned packages will be created only when needed:
+## Future approved architecture
 
-| Package | Responsibility | Build 2 status |
-| --- | --- | --- |
-| `ui` | Compose dashboard, presentation state, theme | Dashboard, theme and inventory state implemented |
-| `domain` | Pure Kotlin models and policies | Inventory models, repository port and source exclusion implemented |
-| `storage` | Permission/access adapters, inventory, storage I/O | Access adapter and metadata-only inventory implemented |
-| `detection` | Opportunistic download events; exclude destination root | Planned |
-| `processing` | Candidate coordination and deferred reconciliation | Planned |
-| `readiness` | Conservative completion and stability decisions | Planned |
-| `classification` | Local APK metadata, document, media and archive inspection | Planned |
-| `routing` | Rules, categories, destination selection | Planned |
-| `operations` | Safe move engine and recovery orchestration | Planned |
-| `history` | Persistent journal, activity history and Undo support | Planned |
+The destination remains unified Organized/ with Installers, Documents, Images,
+Audio, Videos, Archives and Other. Builds 4–7 retain conservative readiness,
+local classification, rules-based routing, hybrid opportunistic events plus
+WorkManager reconciliation, persistent history/Undo, grouped notification batches,
+and UI refinement. A permanently running dataSync foreground service is not a
+requirement. Preserve duplicates, exclude destinations as sources, and revalidate
+before operations. Future packages detection/processing/readiness/classification/
+routing are not populated prematurely.
 
-Filesystem operations stay outside Compose. Keep policies independent of Android
-where practical and test adapters separately. Build 2 has no DI framework,
-WorkManager, Room, or speculative framework abstractions.
-
-## Collaboration
-
-- **Gemini:** technical research, Android API validation, code/diff audit.
-- **ChatGPT:** architecture and task framing.
-- **Codex:** primary implementation engineer.
-- **KroflaFPS:** project lead and device tester.
+Media index synchronization is considered but deferred while Android mutations
+are disabled; future best-effort indexing cannot establish movement or update
+every browser/third-party download database. No four-tab UI redesign, AMOLED
+restyle, monitoring, notifications, services, boot receiver or remote service is
+implemented. Independent Jinx audit and owner hardware acceptance remain pending.

@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Personal sideloaded organizer. Build 2 only reads Downloads metadata. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Personal sideloaded organizer. Build 3 engineering keeps Downloads read-only. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <application
+        android:name=".OrganizerApplication"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.S26DownloadOrganizer">
+        <meta-data android:name="com.kroflafps.s26downloadorganizer.MUTATIONS_ENABLED" android:value="false" />
+        <!-- Single process only; do not package Room's unused invalidation service. -->
+        <service android:name="androidx.room.MultiInstanceInvalidationService" tools:node="remove" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

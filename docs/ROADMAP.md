@@ -23,7 +23,7 @@ are implemented; device acceptance and published CI evidence are tracked separat
 
 ## 2. Storage access and read-only inventory
 
-- [ ] Validate provisional all-files access and explicit permission flow on-device.
+- [x] Build 2 all-files access/inventory confirmed on the S26 Ultra by KroflaFPS.
 - [x] Implement independently testable storage adapters and permission revocation handling.
 - [x] Read-only metadata inventory of immediate Downloads entries; no file mutations.
 - [x] Boundary-aware normalized source exclusion for Organized/ and descendants;
@@ -35,15 +35,37 @@ are implemented; device acceptance and published CI evidence are tracked separat
 - [x] Verify Build 2 JVM tests/lint/debug APK in the cloud workspace.
 - [x] Confirm a successful published Build 2 Actions run and APK artifact
   ([implementation run](https://github.com/KroflaFPS/s26-download-organizer/actions/runs/41518395309)).
-- [ ] Owner completes the Build 2 acceptance checklist on the S26 Ultra.
+- [x] Build 2 merged at `86082b4b887a82d66cef41ea8072428d50f7f254` via PR #2
+  and owner-tested on Android 17, as reported by KroflaFPS.
 
-## 3. Safe move engine and persistent operation journal
+## 3. Safe operations and persistent journal — Build 3 / 3.1 engineering subset
 
-- [ ] Persist operation intent, transitions, outcomes, and recovery information.
-- [ ] Implement verified moves with interruption and partial-failure recovery.
-- [ ] Preserve duplicates with concurrency-safe unique filename allocation; never overwrite.
-- [ ] Implement history and reversible Undo with conflict checks.
-- [ ] Test crash recovery, collision races, missing sources, and storage failures.
+- [x] Room journal, UUID/identity claims, revisioned phase events, schema v1/v2 exports and explicit migration 1→2.
+- [x] Portable single-file coordinator with no-clobber naming/publication contracts,
+  explicit copy verification, copy-only outcomes and separate removal/sync evidence.
+- [x] Conservative idempotent recovery and conflict-checked Undo logic.
+- [x] Build 3.1: no completion inferred from disappearance/stale evidence;
+  durable fair bounded recovery pagination and explicit large-record deferral.
+- [x] Build 3.1: stricter phase/evidence/revision/claim/event validation; migration,
+  rollback, Undo conflict, cancellation and fairness regression coverage.
+- [x] Build 3.1: public-API Android descriptor-backed bounded read/hash adapter;
+  writes still rejected, Samsung /proc/FUSE behavior unverified.
+- [x] Real-I/O disposable fixture tests, phase termination/failure injection, Room
+  close/reopen integration, missing-migration failure, UI gate and inventory regressions.
+- [x] Minimal review/history/recovery UI; real-file Confirm/Undo disabled.
+- [x] Protected stable-signing workflow and disposable-key verification tests;
+  no private credentials committed or assumed.
+- [ ] Approve/configure owner stable signing and journal-retention procedures.
+- [ ] Implement and independently audit an Android adapter with rooted no-follow
+  mutation I/O and no-clobber publication. Until then, no shared-storage mutation capability.
+- [ ] Establish a defensible source-deletion capability, or retain copy-only behavior.
+  Path stat followed by unlink is insufficient; readiness alone cannot close this race.
+- [ ] Validate Android/FUSE sync/publication/recovery behavior on disposable device files.
+- [ ] Enable a reviewed owner-testable operational build only after release gates.
+- [ ] Independent Jinx audit and KroflaFPS Build 3 device acceptance.
+
+JVM success does not complete hardware crash/durability gates. The shipping
+Build 3.1 engineering APK preserves read-only Downloads and cannot modify user files.
 
 ## 4. File readiness verification
 
