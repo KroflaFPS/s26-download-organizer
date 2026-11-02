@@ -6,14 +6,15 @@ Build 1 established the launchable Compose application and CI. Build 2 was merge
 at `86082b4b887a82d66cef41ea8072428d50f7f254` via PR #2 and confirmed working on the
 S26 Ultra/Android 17 by KroflaFPS. Build 3 preserves that permission/inventory code.
 
-**Build 3 is a gated engineering subset. No real Android file mutation or Undo is
+**Build 3.1 is a gated engineering subset. No real Android file mutation or Undo is
 enabled.** Implemented: coordinator/state model, Room journal, conservative
 reconciliation logic, review/history UI and realistic disposable-fixture tests.
 Not implemented/approved: a production Android shared-storage writer with safe
 anchored I/O/publication/removal semantics, owner signing credentials and hardware
 recovery/durability acceptance. The shipping `AndroidOperationFiles` adapter
-rejects all writes, cannot conditionally unlink, and returns untrusted recovery
-evidence. Do not describe these blocked capabilities as an operational move feature.
+rejects all writes and cannot conditionally unlink. Bounded descriptor-backed
+recovery reads are implemented; unsupported roots, identities or /proc access
+return unverifiable evidence. Android/FUSE validation is still pending. Do not describe these blocked capabilities as an operational move feature.
 
 ## Toolchain and persistence dependencies
 
@@ -21,7 +22,7 @@ One `:app` module; application ID `com.kroflafps.s26downloadorganizer`.
 AGP 9.5.0, Gradle 9.8.2, JDK 21, built-in Kotlin/Compose compiler 2.2.10,
 Compose BOM 2026.09.00, Material 3, AndroidX Core 1.19.1, Activity 1.13.0,
 Lifecycle 2.11.0, coroutines 1.10.2, compile/target API 37, minimum API 26 and
-JUnit 4.13.2 are retained. Version code/name: 3/0.3.0.
+JUnit 4.13.2 are retained. Version code/name: 4/0.3.1.
 
 Room 2.8.5, Room Gradle plugin 2.8.5 and **KSP2 2.3.4** add journal generation and
 schema export without replacing AGP's Kotlin plugin. Official guidance checked
@@ -78,8 +79,13 @@ Intent precedes the first mutation. A journaled `.s26-<operation UUID>.part` is
 exclusively created before bounded copying. The real-I/O fixture adapter uses a
 64 KiB buffer, FileChannel.force(true), SHA-256 and before/after identity, size,
 mtime/ctime evidence. The coordinator verifies copied size/hash, rereads source
-evidence and revalidates before removal. These I/O implementations are currently
-**fixture-only**; the APK has no fallback path-based writer.
+evidence and revalidates before removal. The mutation I/O implementations remain
+**fixture-only**; the APK has no fallback path-based writer. The production
+read-only inspector uses a 64 KiB buffer, SHA-256, descriptor fstat evidence,
+no-follow child opens and post-read identity/stamp/path checks. It reads no more
+than its allowance plus one growth/EOF sentinel per file, checks permission and
+cancellation during reads, and never treats a snapshot as a deletion receipt.
+See the [public API review](ANDROID_STORAGE_REVIEW.md) for its limits.
 
 Fixture publication uses atomic exclusive hard-link creation to a new final
 name; existing names cause retry with `filename (1).ext`, etc. It never renames
@@ -117,15 +123,19 @@ Filesystem and SQLite never share an atomic transaction.
 
 ## Journal, schema and concurrency
 
-App-private Room database `operation-journal.db`, exported schema version **1**:
-operations plus append-only phase events. Records include UUID/type/related move,
+App-private Room database `operation-journal.db`, exported schema version **2**:
+operations, append-only phase events and a singleton durable recovery cursor. Records include UUID/type/related move,
 source/target/stage paths, original name, identity/change evidence, size/hash,
 phase/error, recovery flag, timestamps/revision, copied/verified/published/sync/
 removal evidence. Complete contents are never stored. Sensitive path/hash metadata
 stays local. No analytics or network permission exists.
 
 Short transactions claim intent, or compare-and-set the revision/update the row
-and append its phase event. They never span copying. A unique source token blocks
+and append its phase event. Saves validate the previous event tail, legal phase
+transitions, monotone evidence, immutable paths/source identity/hash, source-claim
+retention and precise revision increments. New intents cannot inject completion
+evidence; Undo claims require an eligible parent in the same transaction. They
+never span copying. A unique source token blocks
 already-active/handled identity requests; a unique related ID blocks repeated
 Undo. UUID replay returns the same record without repeating writes. One coordinator
 serializes user actions; DB constraints also protect separate coordinator instances.
@@ -148,17 +158,28 @@ source-directory synchronization and journal finalization. It is never inferred
 from a successful copy alone. Events retain phase chronology by revision even
 when wall-clock times are not useful; history prioritizes unresolved records.
 
-This is the first database version; inventing a historical migration is unnecessary.
-Every future schema change must retain exports, increment the version and add a
-reviewed/tested versioned migration. Missing migrations fail closed. There is no
+Schema 1 remains unchanged. Explicit migration 1→2 creates the cursor table and
+quarantines legacy COMPLETED rows lacking adapter-confirmed removal, appending
+a RECOVERY_REQUIRED event, clearing completion time and preserving claims/data.
+Already confirmed rows and pending operations retain their evidence and events.
+Native SQLite tests reopen/migrate persisted fixture data and verify the export
+identity hash. Every future schema change must retain exports, increment the
+version and add a reviewed/tested versioned migration. Missing migrations fail closed. There is no
 destructive migration or automatic database reset. CI detects exported schema
 drift; tests compare the Room database identity hash to the versioned export.
 
 ## Bounded, evidence-only reconciliation
 
 Launch or **Check recovery** considers at most 20 pending records and a 64 MiB
-aggregate verification budget (source/stage/destination). Oversized work is
-retained/deferred. No directory-wide orphan discovery, retry, deletion or Undo
+aggregate verification budget (source/stage/destination), plus at most one
+growth/EOF sentinel per observation. A persistent UUID keyset cursor with a
+fixed cycle ceiling advances even for oversized, unchanged, or row-write-failed
+records. New inserts cannot indefinitely extend the active cycle. Each call
+processes one page and wraps at most once; subsequent launches/manual checks
+continue. Oversized work receives RECOVERY_BUDGET and remains visible for manual
+review; it is not silently abandoned or hashed without a bound. Cancellation
+retains the current position; total database unavailability stops reconciliation.
+Per-row save failures are reported while later rows receive attention. No directory-wide orphan discovery, retry, deletion or Undo
 occurs. Repeated equivalent evidence does not append duplicate transitions.
 
 | Evidence | Conservative outcome |
@@ -168,13 +189,17 @@ occurs. Repeated equivalent evidence does not append duplicate transitions.
 | Original intact; no stage/final output | FAILED_SAFE; explicit future retry only |
 | Partial or uncommitted output | Preserve all paths; RECOVERY_REQUIRED |
 | Verified original and destination both present | COPY_ONLY; no automatic removal/Undo |
-| Original absent; verified destination; recorded removal and source sync | May reconcile COMPLETED with explicit evidence |
-| Original absent without sufficient removal/sync evidence | RECOVERY_REQUIRED |
+| Original absent; verified destination, even with recorded removal/sync flags | RECOVERY_REQUIRED / REMOVAL_UNCONFIRMED; absence is not an app removal receipt |
 | Both original and output missing | Serious unresolved failure |
 | A tracked path contains another file/modified content | Conflict; never replace or silently clean up |
 
-In this Android build observations are untrusted, so existing pending operations
-cannot be silently promoted to success. Empty history is honest. Normal SQLite
+Reconciliation never transitions an interrupted row to COMPLETED. A crash can
+separate intent, actual unlink, removal-evidence persistence, directory sync and
+finalization. External deletion/rename or stale flags cannot establish an
+unbroken app-controlled removal chain. Only uninterrupted coordinator execution
+with an adapter-confirmed conditional removal, sync and valid journal succession
+can finalize in the closed-world fixture model. Recovery preserves all remaining
+files; even SOURCE_REMOVED rows stay unresolved. Empty history is honest. Normal SQLite
 reopen and phase-fault simulations are not proof of reboot/power-loss durability.
 
 ## Undo and UI
@@ -200,7 +225,10 @@ See [README signing procedure](../README.md#stable-development-signing-and-journ
 Normal APKs use ephemeral debug signing and are labeled engineering-only. A
 separate protected-environment job can re-sign a verified main/manual build with
 owner-provisioned secrets and verify an independently pinned certificate. PRs
-cannot access that job's secrets. Missing credentials/pin mismatch fail, with no
+cannot access that job's secrets through the workflow. Protection requires owner
+configuration of the environment and main-only branch rules; actual provisioning
+has not been verified. The signing script additionally rejects PR/non-main CI
+contexts and requires a unique compiled boolean-false mutation marker. Missing credentials/pin mismatch fail, with no
 stable-signing fallback. Disposable-key tests check this tooling, not owner setup.
 Even the optional stable-signed engineering APK remains mutation-disabled.
 

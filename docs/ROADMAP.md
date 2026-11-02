@@ -38,12 +38,18 @@ are implemented; device acceptance and published CI evidence are tracked separat
 - [x] Build 2 merged at `86082b4b887a82d66cef41ea8072428d50f7f254` via PR #2
   and owner-tested on Android 17, as reported by KroflaFPS.
 
-## 3. Safe operations and persistent journal — Build 3 engineering subset
+## 3. Safe operations and persistent journal — Build 3 / 3.1 engineering subset
 
-- [x] Room journal, UUID/identity claims, revisioned phase events, schema v1 export.
+- [x] Room journal, UUID/identity claims, revisioned phase events, schema v1/v2 exports and explicit migration 1→2.
 - [x] Portable single-file coordinator with no-clobber naming/publication contracts,
   explicit copy verification, copy-only outcomes and separate removal/sync evidence.
 - [x] Conservative idempotent recovery and conflict-checked Undo logic.
+- [x] Build 3.1: no completion inferred from disappearance/stale evidence;
+  durable fair bounded recovery pagination and explicit large-record deferral.
+- [x] Build 3.1: stricter phase/evidence/revision/claim/event validation; migration,
+  rollback, Undo conflict, cancellation and fairness regression coverage.
+- [x] Build 3.1: public-API Android descriptor-backed bounded read/hash adapter;
+  writes still rejected, Samsung /proc/FUSE behavior unverified.
 - [x] Real-I/O disposable fixture tests, phase termination/failure injection, Room
   close/reopen integration, missing-migration failure, UI gate and inventory regressions.
 - [x] Minimal review/history/recovery UI; real-file Confirm/Undo disabled.
@@ -51,7 +57,7 @@ are implemented; device acceptance and published CI evidence are tracked separat
   no private credentials committed or assumed.
 - [ ] Approve/configure owner stable signing and journal-retention procedures.
 - [ ] Implement and independently audit an Android adapter with rooted no-follow
-  I/O and no-clobber publication. Until then, no shared-storage mutation capability.
+  mutation I/O and no-clobber publication. Until then, no shared-storage mutation capability.
 - [ ] Establish a defensible source-deletion capability, or retain copy-only behavior.
   Path stat followed by unlink is insufficient; readiness alone cannot close this race.
 - [ ] Validate Android/FUSE sync/publication/recovery behavior on disposable device files.
@@ -59,7 +65,7 @@ are implemented; device acceptance and published CI evidence are tracked separat
 - [ ] Independent Jinx audit and KroflaFPS Build 3 device acceptance.
 
 JVM success does not complete hardware crash/durability gates. The shipping
-Build 3 engineering APK preserves read-only Downloads and cannot modify user files.
+Build 3.1 engineering APK preserves read-only Downloads and cannot modify user files.
 
 ## 4. File readiness verification
 

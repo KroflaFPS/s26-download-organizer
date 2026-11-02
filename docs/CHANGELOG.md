@@ -151,3 +151,48 @@ sync requests do not prove sudden-power-loss or universal crash safety.
   permission metadata and absence of fixture-only mutation adapters were verified.
 - actionlint validated the workflow. No owner-provisioned signing, emulator,
   device installation, Android 17 mutation test or sudden-power-loss test was performed.
+
+
+### Build 3.1 — Targeted audit repairs and safe release preparation
+- Continued PR #3 / feat/build-3-safe-operations from expected head
+  05de66c632233991b963262bce19a26d3d30d1c6; no merge or Builds 4–7 work.
+- Version code/name 4/0.3.1; Build 3.1 engineering dashboard and artifact names.
+- Removed recovery's automatic completion inference from source disappearance,
+  including stale removal/sync flags. Ambiguity remains RECOVERY_REQUIRED;
+  copy-only and completion remain distinct and copy-only never enables Undo.
+- Durable bounded keyset pagination advances past large/permanent unresolved
+  records, with a fixed cycle ceiling, visible budget deferral and row-failure
+  reporting. No unbounded startup hashing or repeated movement/cleanup.
+- Strengthened journal revision, immutable evidence, legal transition, monotone
+  phase-proof, new-intent, source/Undo claim and event-tail consistency checks.
+  Duplicate Undo request IDs return their existing result without repeating I/O.
+- Exported schema 2, preserving schema 1. Explicit migration preserves records,
+  adds cursor state and quarantines legacy inferred completions without erasure.
+- Added public-API Android no-follow descriptor read/hash observations beneath
+  approved roots. SHA-256 streaming is capped, cancellation/permission-aware and
+  closes descriptors. All publication, create/write and source deletion methods
+  remain unavailable; no user-file mutation is enabled.
+- Hardened signing preflight with trusted CI-context checks and compiled APK
+  mutation-disabled marker verification. Added disposable-key/context/marker and
+  test-adapter packaging checks. No owner credentials created or uploaded.
+- Added migration/recreation, recovery starvation, external disappearance,
+  interrupted removal, event rollback, Undo conflict and bounded-reader regressions.
+- Documented public API research, explicit artifact matrix and remaining device,
+  signing, no-clobber and conditional-removal blockers. Independent audit and
+  real-device acceptance remain pending. No operational APK is approved.
+
+Verification for this revision is recorded with the final PR report. Tests model
+process termination and isolated I/O; they do not establish Android shared-storage
+crash durability or power-loss safety. Earlier Build 3 descriptions above are
+historical; the stricter Build 3.1 recovery rules supersede completion inference.
+
+### Build 3.1 local verification
+- JVM: 87 tests passed, zero failures/errors/skips, including native SQLite Room
+  migration/recreation, event-transaction rollback and persisted cursor tests.
+- Six Python signing/packaging tests passed using disposable credentials only.
+- Kotlin/Compose/KSP compilation, testDebugUnitTest, lintDebug and assembleDebug
+  succeeded. Lint has zero errors and five unchanged advisory warnings.
+- Workflow actionlint, Room schema versioning, APK signature, 16 KiB alignment,
+  source/merged manifest contracts and absence of test-only adapters verified.
+- No owner signing credentials, emulator/device tests, hardware crash tests or
+  real-file operational tests were used. All owner-facing APKs remain disabled.

@@ -90,6 +90,8 @@ private fun errorLabel(error: OperationError): String = when (error) {
     OperationError.UNTRUSTED_EVIDENCE -> "Filesystem identity could not be established safely."
     OperationError.MISSING_BOTH -> "Both recorded paths are missing; this is unresolved."
     OperationError.PARTIAL_OUTPUT -> "An incomplete or uncommitted output may remain."
+    OperationError.REMOVAL_UNCONFIRMED -> "Source disappearance does not prove the app safely removed it."
+    OperationError.RECOVERY_BUDGET -> "Large-file verification is deferred by the recovery limit; manual review is required."
     OperationError.PERMISSION -> "Storage access is unavailable."
     else -> "The operation could not be finalized safely."
 }

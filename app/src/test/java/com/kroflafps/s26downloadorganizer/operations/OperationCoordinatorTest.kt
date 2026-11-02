@@ -353,4 +353,20 @@ class OperationCoordinatorTest {
         assertTrue(Files.exists(original))
     }
 
+
+    @Test fun duplicateUndoReturnsExistingResultAndFailedUndoPreservesNewDownloadsOccupant() = runBlocking {
+        val files = files(); val journal = MemoryJournal(); val original = source(files, "name.bin")
+        val move = record(engine(files, journal).move(id(), original.toString(), true))
+        Files.write(original, byteArrayOf(99), StandardOpenOption.CREATE_NEW)
+        files.bytesLimit = 0
+        val undoId = id()
+        val failed = record(engine(files, journal).undo(undoId, move.id, true))
+        assertEquals(Phase.RECOVERY_REQUIRED, failed.phase)
+        assertArrayEquals(byteArrayOf(99), Files.readAllBytes(original))
+        assertArrayEquals(byteArrayOf(0, 1, -1, 2), Files.readAllBytes(Paths.get(requireNotNull(move.destinationPath))))
+        assertEquals(failed, record(engine(files, journal).undo(undoId, move.id, true)))
+        assertEquals(2, journal.records.size)
+        assertFalse(Files.exists(original.resolveSibling("name (1).bin")))
+    }
+
 }

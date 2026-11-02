@@ -12,6 +12,7 @@ enum class OperationError {
     INVALID_REQUEST, PERMISSION, STORAGE_UNAVAILABLE, SOURCE_CHANGED, CONFLICT,
     IO, JOURNAL, NO_SAFE_REMOVAL, DURABILITY_UNCONFIRMED, UNTRUSTED_EVIDENCE,
     MISSING_BOTH, PARTIAL_OUTPUT, CANCELLED,
+    REMOVAL_UNCONFIRMED, RECOVERY_BUDGET,
 }
 
 data class OperationRecord(
@@ -48,7 +49,8 @@ data class OperationRecord(
     val revision: Int = 0,
 ) {
     val undoEligible: Boolean get() = type == OperationType.MOVE && phase == Phase.COMPLETED &&
-        destinationVerified && destinationPublished && destinationSynced && sourceRemoved && sourceRemovalSynced && !recoveryNeeded
+        destinationVerified && destinationPublished && destinationSynced && sourceRemoved && sourceRemovalSynced &&
+        removalEvidence == "adapter-confirmed" && !recoveryNeeded
 }
 
 data class OperationHistoryEntry(val record: OperationRecord, val undoRequested: Boolean) {
@@ -84,7 +86,7 @@ interface OperationFiles {
     fun publishNoClobber(stage: String, stageIdentity: String, destination: String): String
     fun syncDirectory(path: String): Boolean
     fun removeConditionally(source: FileEvidence, destination: FileEvidence): Removal
-    fun observe(path: String, maximumBytes: Long): Observation
+    fun observe(path: String, maximumBytes: Long, checkpoint: () -> Unit = {}): Observation
 }
 
 interface OperationJournal {
@@ -94,7 +96,11 @@ interface OperationJournal {
     /** Compare-and-set revision and append a phase event in one short DB transaction. */
     suspend fun save(record: OperationRecord)
     suspend fun incomplete(limit: Int): List<OperationRecord>
+    suspend fun nextRecoveryPage(limit: Int): RecoveryPage
+    suspend fun advanceRecoveryCursor(lastId: String, ceilingId: String)
 }
+
+data class RecoveryPage(val records: List<OperationRecord>, val ceilingId: String?)
 
 sealed interface OperationResult {
     data class Recorded(val record: OperationRecord) : OperationResult
@@ -113,6 +119,10 @@ enum class Checkpoint {
 class OperationFailure(val category: OperationError) : java.io.IOException(category.name)
 
 internal fun OperationRecord.requireConsistentEvidence() {
+    require(java.util.UUID.fromString(id).toString() == id)
+    require((type == OperationType.MOVE) == (relatedId == null))
+    require(relatedId == null || relatedId != id && java.util.UUID.fromString(relatedId).toString() == relatedId)
+    require(sourceIdentity.isNotBlank() && sourceStamp.isNotBlank() && contentHash.matches(Regex("[a-f0-9]{64}")))
     require(sourceSize >= 0 && bytesCopied in 0..sourceSize && revision >= 0 && updatedAt >= startedAt)
     require(!destinationVerified || bytesCopied == sourceSize)
     require(!destinationPublished || destinationVerified && destinationPath != null && destinationIdentity != null && destinationStamp != null)
@@ -120,6 +130,54 @@ internal fun OperationRecord.requireConsistentEvidence() {
     require(!removalAuthorized || destinationVerified && destinationPublished && destinationSynced)
     require(!sourceRemoved || removalAuthorized && removalEvidence != null)
     require(!sourceRemovalSynced || sourceRemoved)
-    if (phase == Phase.COMPLETED) require(destinationVerified && destinationPublished && destinationSynced && sourceRemoved && sourceRemovalSynced && completedAt != null && !recoveryNeeded)
+    if (phase == Phase.COMPLETED) require(destinationVerified && destinationPublished && destinationSynced && sourceRemoved && sourceRemovalSynced && completedAt != null && !recoveryNeeded && removalEvidence == "adapter-confirmed")
     if (phase == Phase.COPY_ONLY) require(destinationVerified && destinationPublished && !sourceRemoved && recoveryNeeded)
+    if (phase == Phase.RECOVERY_REQUIRED) require(recoveryNeeded)
+    if (phase == Phase.SOURCE_REMOVAL_PENDING) require(removalAuthorized)
+    if (phase == Phase.SOURCE_REMOVED) require(sourceRemoved && sourceRemovalSynced)
+    require(completedAt == null || phase == Phase.COMPLETED && completedAt in startedAt..updatedAt)
+}
+
+internal fun OperationRecord.requireNewIntent() {
+    requireConsistentEvidence()
+    require(phase == Phase.PREPARED && revision == 0 && updatedAt == startedAt && error == null && !recoveryNeeded)
+    require(!sourceToken.isNullOrBlank() && destinationPath == null && stagingIdentity == null && destinationIdentity == null &&
+        destinationStamp == null && bytesCopied == 0L && !destinationVerified && !destinationPublished && !destinationSynced &&
+        !removalAuthorized && !sourceRemoved && !sourceRemovalSynced && removalEvidence == null && completedAt == null)
+}
+
+internal fun OperationRecord.requireSuccessorOf(previous: OperationRecord) {
+    requireConsistentEvidence()
+    require(previous.revision < Int.MAX_VALUE && revision == previous.revision + 1) { "Journal revision conflict" }
+    require(type == previous.type && relatedId == previous.relatedId && sourcePath == previous.sourcePath &&
+        destinationDirectory == previous.destinationDirectory && originalName == previous.originalName &&
+        sourceIdentity == previous.sourceIdentity && sourceSize == previous.sourceSize && sourceStamp == previous.sourceStamp &&
+        contentHash == previous.contentHash && stagingPath == previous.stagingPath && startedAt == previous.startedAt && updatedAt >= previous.updatedAt)
+    require(legalTransition(previous.phase, phase) || previous.phase !in setOf(Phase.COMPLETED, Phase.FAILED_SAFE) && phase == Phase.COPY_ONLY)
+    require(sourceToken == previous.sourceToken || phase == Phase.FAILED_SAFE && sourceToken == null)
+    require(previous.stagingIdentity == null || stagingIdentity == previous.stagingIdentity)
+    require(previous.destinationIdentity == null || destinationIdentity == previous.destinationIdentity && destinationStamp == previous.destinationStamp)
+    require(destinationPath == previous.destinationPath || previous.phase == Phase.COPY_VERIFIED && phase == Phase.COPY_VERIFIED)
+    if (previous.stagingIdentity == null && stagingIdentity != null) require(previous.phase == Phase.ALLOCATING && phase == Phase.COPYING)
+    if (previous.destinationIdentity == null && destinationIdentity != null) require(previous.phase == Phase.COPY_VERIFIED && phase == Phase.DESTINATION_COMMITTED && destinationIdentity == stagingIdentity)
+    if (!previous.destinationVerified && destinationVerified) require(previous.phase == Phase.COPYING && phase == Phase.COPY_VERIFIED)
+    if (!previous.destinationPublished && destinationPublished) require(previous.phase == Phase.COPY_VERIFIED && phase == Phase.DESTINATION_COMMITTED)
+    if (!previous.destinationSynced && destinationSynced) require(previous.phase == Phase.COPY_VERIFIED && phase == Phase.DESTINATION_COMMITTED)
+    if (!previous.removalAuthorized && removalAuthorized) require(previous.phase == Phase.DESTINATION_COMMITTED && phase == Phase.SOURCE_REMOVAL_PENDING)
+    if (!previous.sourceRemoved && sourceRemoved) require(previous.phase == Phase.SOURCE_REMOVAL_PENDING && phase in setOf(Phase.SOURCE_REMOVED, Phase.RECOVERY_REQUIRED))
+    if (!previous.sourceRemovalSynced && sourceRemovalSynced) require(previous.phase == Phase.SOURCE_REMOVAL_PENDING && phase in setOf(Phase.SOURCE_REMOVED, Phase.RECOVERY_REQUIRED))
+    if (bytesCopied != previous.bytesCopied) require(previous.phase == Phase.COPYING && phase == Phase.COPY_VERIFIED)
+    require(removalEvidence == previous.removalEvidence || previous.removalEvidence == null &&
+        previous.phase == Phase.SOURCE_REMOVAL_PENDING && phase in setOf(Phase.SOURCE_REMOVED, Phase.RECOVERY_REQUIRED) &&
+        sourceRemoved && removalEvidence == "adapter-confirmed")
+    require(bytesCopied >= previous.bytesCopied)
+    require(!previous.destinationVerified || destinationVerified)
+    require(!previous.destinationPublished || destinationPublished)
+    require(!previous.destinationSynced || destinationSynced)
+    require(!previous.removalAuthorized || removalAuthorized)
+    require(!previous.sourceRemoved || sourceRemoved)
+    require(!previous.sourceRemovalSynced || sourceRemovalSynced)
+    // Recovery must not manufacture completion from a path observation or stale flags.
+    if (phase == Phase.COMPLETED) require(previous.phase == Phase.SOURCE_REMOVED && previous.sourceRemoved &&
+        previous.sourceRemovalSynced && previous.removalEvidence == "adapter-confirmed")
 }

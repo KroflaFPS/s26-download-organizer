@@ -33,11 +33,14 @@ class SigningTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.keys.cleanup()
 
-    def invoke(self, directory, credentials=True, wrong_pin=False):
+    def invoke(self, directory, credentials=True, wrong_pin=False, github_context=None):
         work = Path(directory)
         (work / "unsigned-input").mkdir()
         shutil.copyfile(APK, work / "unsigned-input/app-debug.apk")
         env = {name: value for name, value in os.environ.items() if not name.startswith("S26_DEV_")}
+        env.pop("GITHUB_ACTIONS", None)  # Existing disposable-key tests model a trusted local signing session.
+        if github_context:
+            env.update(github_context)
         env["RUNNER_TEMP"] = str(work)
         if credentials:
             env.update(S26_DEV_KEYSTORE_BASE64=self.key_base64, S26_DEV_STORE_PASSWORD=self.password,
@@ -67,3 +70,30 @@ class SigningTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse((Path(directory) / "s26-signed-output/certificate.txt").exists())
             self.assertFalse(list(Path(directory).glob("s26-signing-*")))
+
+    def test_pr_and_non_main_contexts_are_rejected_before_signing(self):
+        contexts = [
+            {"GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "pull_request", "GITHUB_REF": "refs/pull/3/merge", "GITHUB_REPOSITORY": "KroflaFPS/s26-download-organizer"},
+            {"GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/feat/build-3-safe-operations", "GITHUB_REPOSITORY": "KroflaFPS/s26-download-organizer"},
+        ]
+        for context in contexts:
+            with tempfile.TemporaryDirectory(prefix="s26-context-test-") as directory:
+                result = self.invoke(directory, github_context=context)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("No PR signing", result.stderr)
+                self.assertFalse((Path(directory) / "s26-signed-output").exists())
+
+    def test_compiled_gate_marker_must_be_unique_and_boolean_false(self):
+        from sign_engineering_apk import mutations_disabled_in_xmltree, MARKER
+        disabled = '\n    E: meta-data (line=1)\n      A: android:name(0x01010003)="' + MARKER + '"\n      A: android:value(0x01010024)=(type 0x12)0x0\n'
+        self.assertTrue(mutations_disabled_in_xmltree(disabled))
+        self.assertFalse(mutations_disabled_in_xmltree(disabled.replace("0x0\n", "0xffffffff\n")))
+        self.assertFalse(mutations_disabled_in_xmltree(disabled + disabled))
+        self.assertFalse(mutations_disabled_in_xmltree(""))
+
+    def test_disposable_mutation_adapters_are_not_packaged(self):
+        from zipfile import ZipFile
+        with ZipFile(APK) as package:
+            dex = b"".join(package.read(name) for name in package.namelist() if name.endswith(".dex"))
+        self.assertNotIn(b"FixtureFiles", dex)
+        self.assertNotIn(b"MemoryJournal", dex)

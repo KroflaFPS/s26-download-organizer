@@ -51,12 +51,12 @@ internal class FixtureFiles(private val privateRoot: Path, override val canCondi
         OperationPolicy.sourcePath(path, if (type == OperationType.MOVE) roots.downloads else roots.other)
         return evidence(path)
     }
-    fun evidence(path: String): FileEvidence {
+    fun evidence(path: String, maximumBytes: Long = Long.MAX_VALUE, checkpoint: () -> Unit = {}): FileEvidence {
         val p = file(path)
         val before = attrs(p)
         if (!before.isRegularFile || before.isSymbolicLink || before.fileKey() == null) throw OperationFailure(OperationError.UNTRUSTED_EVIDENCE)
         val stamp = stamp(p)
-        val hash = hash(p)
+        val hash = hash(p, maximumBytes, checkpoint)
         val after = attrs(p)
         if (before.fileKey() != after.fileKey() || before.size() != after.size() || stamp != stamp(p)) throw OperationFailure(OperationError.SOURCE_CHANGED)
         return FileEvidence(p.toString(), requireNotNull(before.fileKey()).toString(), before.size(), stamp, hash)
@@ -132,24 +132,30 @@ internal class FixtureFiles(private val privateRoot: Path, override val canCondi
             else { Files.delete(file(source.path)); Removal.REMOVED }
         }
     }
-    override fun observe(path: String, maximumBytes: Long): Observation = try {
+    override fun observe(path: String, maximumBytes: Long, checkpoint: () -> Unit): Observation = try {
         val p = file(path)
         if (!Files.exists(p, NOFOLLOW_LINKS)) Observation.Missing
         else if (attrs(p).size() > maximumBytes) Observation.Unverifiable
-        else Observation.Present(evidence(path))
+        else Observation.Present(evidence(path, maximumBytes, checkpoint))
+    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
     } catch (_: Exception) { Observation.Unverifiable }
 
     companion object {
         private val locks = ConcurrentHashMap<String, Any>()
         private fun attrs(path: Path) = Files.readAttributes(path, BasicFileAttributes::class.java, NOFOLLOW_LINKS)
         private fun stamp(path: Path) = "${attrs(path).lastModifiedTime()}|${Files.getAttribute(path, "unix:ctime", NOFOLLOW_LINKS)}"
-        fun hash(path: Path): String {
+        fun hash(path: Path, maximumBytes: Long = Long.MAX_VALUE, checkpoint: () -> Unit = {}): String {
             val hash = MessageDigest.getInstance("SHA-256")
             FileChannel.open(path, READ, NOFOLLOW_LINKS).use { input ->
                 val buffer = ByteBuffer.allocate(64 * 1024)
+                var bytes = 0L
                 while (true) {
+                    checkpoint()
+                    buffer.limit(minOf(buffer.capacity().toLong(), maximumBytes - bytes + if (maximumBytes == Long.MAX_VALUE) 0 else 1).toInt())
                     val count = input.read(buffer)
                     if (count == -1) break
+                    if (count.toLong() > maximumBytes - bytes) throw java.io.IOException("verification budget exceeded")
+                    bytes += count
                     buffer.flip(); hash.update(buffer); buffer.clear()
                 }
             }
@@ -162,12 +168,15 @@ internal class MemoryJournal : OperationJournal {
     private val mutex = Mutex()
     val records = linkedMapOf<String, OperationRecord>()
     val events = mutableListOf<OperationRecord>()
+    private var cursorLast: String? = null
+    private var cursorCeiling: String? = null
     var failBefore: (OperationRecord) -> Boolean = { false }
     var failAfter: (OperationRecord) -> Boolean = { false }
     override suspend fun get(id: String) = mutex.withLock { records[id] }
     override suspend fun undoFor(id: String) = mutex.withLock { records.values.firstOrNull { it.relatedId == id } }
     override suspend fun create(record: OperationRecord): Boolean = mutex.withLock {
-        record.requireConsistentEvidence()
+        record.requireNewIntent()
+        if (record.relatedId != null) require(records[record.relatedId]?.undoEligible == true)
         if (failBefore(record)) throw java.io.IOException("journal write failed")
         if (records.containsKey(record.id) || records.values.any { record.sourceToken != null && it.sourceToken == record.sourceToken || record.relatedId != null && it.relatedId == record.relatedId }) return@withLock false
         records[record.id] = record; events += record
@@ -175,7 +184,7 @@ internal class MemoryJournal : OperationJournal {
         true
     }
     override suspend fun save(record: OperationRecord) = mutex.withLock {
-        record.requireConsistentEvidence()
+        record.requireSuccessorOf(records.getValue(record.id))
         if (failBefore(record)) throw java.io.IOException("journal write failed")
         check(records.getValue(record.id).revision + 1 == record.revision)
         records[record.id] = record; events += record
@@ -184,4 +193,16 @@ internal class MemoryJournal : OperationJournal {
     override suspend fun incomplete(limit: Int) = mutex.withLock {
         records.values.filter { it.phase !in setOf(Phase.COMPLETED, Phase.FAILED_SAFE) }.sortedBy { it.updatedAt }.take(limit)
     }
+    override suspend fun nextRecoveryPage(limit: Int): RecoveryPage = mutex.withLock {
+        require(limit in 1..20)
+        val pending = records.values.filter { it.phase !in setOf(Phase.COMPLETED, Phase.FAILED_SAFE) }.sortedBy { it.id }
+        var upper = cursorCeiling ?: pending.lastOrNull()?.id ?: return@withLock RecoveryPage(emptyList(), null)
+        var page = pending.filter { (cursorLast == null || it.id > cursorLast!!) && it.id <= upper }.take(limit)
+        if (page.isEmpty()) { upper = pending.lastOrNull()?.id ?: return@withLock RecoveryPage(emptyList(), null); page = pending.filter { it.id <= upper }.take(limit) }
+        RecoveryPage(page, upper)
+    }
+    override suspend fun advanceRecoveryCursor(lastId: String, ceilingId: String) = mutex.withLock {
+        cursorLast = lastId; cursorCeiling = ceilingId
+    }
+
 }

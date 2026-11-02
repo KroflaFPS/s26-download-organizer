@@ -5,15 +5,16 @@ Build 2 was merged at `86082b4b887a82d66cef41ea8072428d50f7f254` through PR #2
 and owner-tested, as confirmed by KroflaFPS. Its permission flow, inventory,
 light/dark theme, launcher and toolchain are preserved.
 
-**Build 3 is an engineering-only, mutation-disabled build. It is NOT approved
+**Build 3.1 is an engineering-only, mutation-disabled build. It is NOT approved
 for real-file move/Undo testing.** Downloads stays read-only. Automatic
 organizing is not active. No owner signing credentials are assumed to exist.
 
 The implemented subset is a persistent Room journal, operation history and
 review dialogs, a capability-based single-file coordinator, and conservative
 recovery/Undo logic tested with disposable filesystem fixtures. The shipping
-Android adapter has no writer or deletion capability; it cannot certify shared-
-storage recovery evidence. Signing alone cannot unlock it. This is a deliberate
+Android adapter adds bounded, descriptor-backed local hash/identity observation,
+but has no writer or deletion capability. Its public API implementation still
+requires Samsung shared-storage validation. Signing alone cannot unlock it. This is a deliberate
 fail-closed release gate, not a working Android move feature disguised as success.
 
 ## Implemented behavior and limits
@@ -28,23 +29,28 @@ fail-closed release gate, not a working Android move feature disguised as succes
 - Actual Room-backed history (empty until operations exist), journal-open errors,
   and **Check recovery**. No fabricated history. Unresolved records are prominent.
 - Recovery is bounded, evidence-only and never retries, publishes, removes files,
-  or cleans up orphans. Without permission it defers. With this Android adapter,
-  nonempty pending records remain unresolved because trusted identity evidence
-  cannot be established. An empty journal does not prove hardware crash safety.
+  or cleans up orphans. Without permission it defers. At most 20 rows and a
+  64 MiB aggregate verification allowance are considered per invocation. A durable
+  keyset cursor advances past large/unresolved rows; tap again to continue. Large
+  files stay explicitly deferred for manual review. Missing source names never
+  prove app-controlled removal, even with historical sync flags. An empty journal
+  does not prove hardware crash safety.
 - Undo is offered only for sufficiently verified completed moves with no prior
   reverse request. Its execution is disabled in this APK. Copy-only/unresolved
   operations never promise Undo. Replace/Overwrite is never an option.
 
 The core forward target is **Organized/Other/** only. No extension classification
 or other category routing is implemented. The installed APK creates neither
-Organized/ nor partial outputs, and never opens user file contents. The existing
+Organized/ nor partial outputs. Inventory remains metadata-only; recovery may
+read and SHA-256 hash only explicitly journaled files within bounded limits.
+It does not parse content, classify it, or transmit it. The existing
 boundary-aware inventory exclusion for Organized/ remains in place.
 
 ## Build and tests
 
 The unchanged baseline is AGP 9.5.0, Gradle 9.8.2, JDK 21, Kotlin/Compose compiler
 2.2.10, Compose BOM 2026.09.00, compile/target API 37, minimum API 26, one `:app`.
-Build 3 uses versionCode 3/versionName 0.3.0. Stable Room 2.8.5 and KSP2 2.3.4
+Build 3.1 uses versionCode 4/versionName 0.3.1. Stable Room 2.8.5 and KSP2 2.3.4
 were selected after checking the official documentation and then compiling with
 this toolchain. Robolectric 4.16.1 is test-only.
 
@@ -75,13 +81,13 @@ retained staging aliases, deletion race, durability limits and remaining gates.
 
 1. Sign into GitHub, open this repository → **Actions → Build debug APK**.
 2. Choose a successful run for the intended branch/commit. Download
-   **s26-download-organizer-build-3-engineering-debug** under **Artifacts**.
+   **s26-download-organizer-build-3-1-engineering-debug** under **Artifacts**.
 3. Extract the ZIP in Samsung **My Files**, then tap `app-debug.apk`. Permit
    installation from the opening app if Android prompts. Samsung Auto Blocker
    or device policy may require reviewing **Settings → Security and privacy**.
-4. Launch and verify **Build 3 · Engineering**, the disabled-mutation explanation,
+4. Launch and verify **Build 3.1 · Engineering**, the disabled-mutation explanation,
    and the preserved Downloads setup/inventory. Artifacts expire after 14 days.
-   Reports and exported schema are in **build-3-verification-reports**.
+   Reports and exported schema are in **build-3-1-verification-reports**.
 
 Ordinary PR/push artifacts use an ephemeral Android debug key. They are explicitly
 engineering-only. A differently signed APK may not update an installed Build 2.
@@ -127,9 +133,12 @@ Codespace can be used without a local PC):
    other refs cannot run this signing job. The ordinary verification job must pass.
 5. CI decodes private material only in runner temporary storage, re-signs the
    engineering APK, verifies the exact pinned certificate, removes temporary
-   credentials and uploads **s26-download-organizer-build-3-stable-signed-engineering**
+   credentials and uploads **s26-download-organizer-build-3-1-stable-signed-engineering**
    with a public `certificate.txt` report. Missing credentials or a pin mismatch
-   fail that job; it does not present the ephemeral APK as stable-signed.
+   fail that job; it does not present the ephemeral APK as stable-signed. The
+   script also refuses PR/non-main CI contexts and APKs without the compiled
+   mutation-disabled manifest marker. That marker is a signing preflight check;
+   the independent code gate and unavailable adapter writers enforce behavior.
 6. Compare the certificate report to the independently retained fingerprint on
    every build. Android enforces matching signatures for normal in-place updates;
    do not bypass a mismatch by uninstalling an app with a nonempty journal.
@@ -138,8 +147,10 @@ The stable signature supports in-place upgrades; it does **not** protect against
 uninstall, Clear data, device loss or storage failure. The journal is app-private
 SQLite with backup/device-transfer exclusions to avoid restoring stale operation
 state onto a different filesystem. No remote backup or export service exists.
-Schema version 1 is exported. Future schema changes must bump the DB version,
-retain old schemas, add/test explicit versioned migrations, and preserve records.
+Schemas 1 and 2 are exported. Migration 1→2 preserves operation/event records,
+adds the durable recovery cursor, and quarantines legacy inferred completions.
+Future schema changes must bump the DB version, retain old schemas, add/test
+explicit versioned migrations, and preserve records.
 Missing migrations fail closed; there is no destructive migration fallback.
 
 ## Current S26 Ultra acceptance checklist (read-only engineering build)
@@ -186,3 +197,21 @@ index refresh must not be confused with movement or browser download history.
 
 KroflaFPS owns the project and device testing; Ada (ChatGPT) leads architecture;
 Jinx (Gemini) independently audits; Codex implements. No independent audit is claimed.
+
+## Build 3.1 release matrix and remaining experiments
+
+| Build path | Signing | File mutation | Suitable use |
+| --- | --- | --- | --- |
+| PR, feature push, ordinary main/manual | Ephemeral debug | Disabled | Launch, inventory, UI regression |
+| Protected manual main with provisioned credentials | Pinned stable certificate | Disabled | Same; verify supported in-place upgrades |
+| JVM fixtures | Disposable private directories only | Test-only | Failure and concurrency models; never shipped |
+
+No APK is approved for disposable-file move/copy/Undo operational experiments.
+The adapter cannot publish or remove a file. Signing does not change these gates.
+The protected environment's actual owner-approval/branch rules and credentials
+have not been provisioned or independently verified in this assignment.
+
+See [Android storage review](docs/ANDROID_STORAGE_REVIEW.md) for public API
+findings, outstanding severity and the exact device experiments required before
+any independently reviewed operational build. The read-only checklist above is
+safe for this APK. Keep PR #3 open for Ada/Jinx review; Builds 4–7 are untouched.

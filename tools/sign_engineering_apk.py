@@ -1,4 +1,4 @@
-"""Trusted manual CI only. Re-sign an engineering APK; NEVER enables mutations.
+"""Trusted manual CI only. Re-sign a verified mutation-disabled engineering APK.
 No passwords appear in command arguments or logs. Private material stays in runner temp.
 """
 import base64
@@ -10,32 +10,57 @@ import re
 import subprocess
 import tempfile
 
-names = ["S26_DEV_KEYSTORE_BASE64", "S26_DEV_STORE_PASSWORD", "S26_DEV_KEY_ALIAS", "S26_DEV_KEY_PASSWORD", "S26_DEV_CERT_SHA256"]
-if not all(os.environ.get(name) for name in names):
-    raise SystemExit("Stable signing requested, but credentials/pinned certificate are incomplete. No fallback APK will be produced.")
-pin = os.environ["S26_DEV_CERT_SHA256"].replace(":", "").strip().lower()
-if not re.fullmatch(r"[0-9a-f]{64}", pin):
-    raise SystemExit("Pinned signing certificate must be a SHA-256 fingerprint")
-runner_temp = Path(os.environ["RUNNER_TEMP"])
-output_dir = runner_temp / "s26-signed-output"
-output_dir.mkdir(mode=0o700, exist_ok=False)
-output = output_dir / "s26-build-3-stable-signed-engineering.apk"
-signer = Path(os.environ["ANDROID_HOME"]) / "build-tools/37.0.0/apksigner"
-with tempfile.TemporaryDirectory(prefix="s26-signing-", dir=runner_temp) as private:
-    keystore = Path(private) / "development.p12"
-    descriptor = os.open(keystore, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    with os.fdopen(descriptor, "wb") as stream:
-        stream.write(base64.b64decode(os.environ["S26_DEV_KEYSTORE_BASE64"], validate=True))
-    subprocess.run([str(signer), "sign", "--ks", str(keystore),
-                    "--ks-key-alias", os.environ["S26_DEV_KEY_ALIAS"],
-                    "--ks-pass", "env:S26_DEV_STORE_PASSWORD", "--key-pass", "env:S26_DEV_KEY_PASSWORD",
-                    "--out", str(output), "unsigned-input/app-debug.apk"], check=True)
-    verified = subprocess.check_output([str(signer), "verify", "--print-certs", str(output)], text=True)
-    fingerprints = re.findall(r"certificate SHA-256 digest:\s*([a-fA-F0-9]+)", verified)
-    if len(fingerprints) != 1 or not hmac.compare_digest(fingerprints[0].lower(), pin):
-        raise SystemExit("Signing certificate mismatch. Artifact upload is blocked.")
-    (output_dir / "certificate.txt").write_text(
-        "ENGINEERING ONLY - MUTATIONS DISABLED\nCertificate SHA-256: " + pin +
-        "\nCommit: " + os.environ.get("GITHUB_SHA", "unknown") +
-        "\nAPK SHA-256: " + hashlib.file_digest(output.open("rb"), "sha256").hexdigest() + "\n"
-    )
+MARKER = "com.kroflafps.s26downloadorganizer.MUTATIONS_ENABLED"
+
+def mutations_disabled_in_xmltree(tree):
+    blocks = re.split(r"\n\s*E: ", tree)
+    named = [block for block in blocks if block.startswith("meta-data ") and
+             re.search(r'android:name\([^)]*\)="' + re.escape(MARKER) + '"', block)]
+    return len(named) == 1 and re.search(r"android:value\([^)]*\)=\(type 0x12\)0x0+\b", named[0]) is not None
+
+def main():
+    # Defense in depth. Protected GitHub environment approval remains the primary secret boundary.
+    if os.environ.get("GITHUB_ACTIONS") == "true" and (
+        os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch" or
+        os.environ.get("GITHUB_REF") != "refs/heads/main" or
+        os.environ.get("GITHUB_REPOSITORY") != "KroflaFPS/s26-download-organizer"
+    ):
+        raise SystemExit("Owner signing is restricted to trusted manual main runs. No PR signing.")
+    names = ["S26_DEV_KEYSTORE_BASE64", "S26_DEV_STORE_PASSWORD", "S26_DEV_KEY_ALIAS", "S26_DEV_KEY_PASSWORD", "S26_DEV_CERT_SHA256"]
+    if not all(os.environ.get(name) for name in names):
+        raise SystemExit("Stable signing requested, but credentials/pinned certificate are incomplete. No fallback APK will be produced.")
+    pin = os.environ["S26_DEV_CERT_SHA256"].replace(":", "").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", pin):
+        raise SystemExit("Pinned signing certificate must be a SHA-256 fingerprint")
+    tools = Path(os.environ["ANDROID_HOME"]) / "build-tools/37.0.0"
+    input_apk = Path("unsigned-input/app-debug.apk")
+    tree = subprocess.check_output([str(tools / "aapt"), "dump", "xmltree", str(input_apk), "AndroidManifest.xml"], text=True)
+    if not mutations_disabled_in_xmltree(tree):
+        raise SystemExit("APK is not explicitly marked mutation-disabled; signing refused.")
+    runner_temp = Path(os.environ["RUNNER_TEMP"])
+    output_dir = runner_temp / "s26-signed-output"
+    output_dir.mkdir(mode=0o700, exist_ok=False)
+    output = output_dir / "s26-build-3-1-stable-signed-engineering.apk"
+    signer = tools / "apksigner"
+    with tempfile.TemporaryDirectory(prefix="s26-signing-", dir=runner_temp) as private:
+        keystore = Path(private) / "development.p12"
+        descriptor = os.open(keystore, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(base64.b64decode(os.environ["S26_DEV_KEYSTORE_BASE64"], validate=True))
+        subprocess.run([str(signer), "sign", "--ks", str(keystore),
+                        "--ks-key-alias", os.environ["S26_DEV_KEY_ALIAS"],
+                        "--ks-pass", "env:S26_DEV_STORE_PASSWORD", "--key-pass", "env:S26_DEV_KEY_PASSWORD",
+                        "--out", str(output), str(input_apk)], check=True)
+        verified = subprocess.check_output([str(signer), "verify", "--print-certs", str(output)], text=True)
+        fingerprints = re.findall(r"certificate SHA-256 digest:\s*([a-fA-F0-9]+)", verified)
+        if len(fingerprints) != 1 or not hmac.compare_digest(fingerprints[0].lower(), pin):
+            raise SystemExit("Signing certificate mismatch. Artifact upload is blocked.")
+        with output.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        (output_dir / "certificate.txt").write_text(
+            "ENGINEERING ONLY - MUTATIONS DISABLED\nCertificate SHA-256: " + pin +
+            "\nCommit: " + os.environ.get("GITHUB_SHA", "unknown") + "\nAPK SHA-256: " + digest + "\n"
+        )
+
+if __name__ == "__main__":
+    main()

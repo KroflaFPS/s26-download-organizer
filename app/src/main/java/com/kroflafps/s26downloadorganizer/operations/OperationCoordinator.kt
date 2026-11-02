@@ -28,6 +28,10 @@ class OperationCoordinator(
         }
 
     suspend fun undo(id: String, originalId: String, acceptUniqueName: Boolean): OperationResult = exclusive {
+        journal.get(id)?.let { existing ->
+            return@exclusive if (existing.type == OperationType.UNDO && existing.relatedId == originalId) OperationResult.Recorded(existing)
+            else OperationResult.Rejected(OperationError.CONFLICT)
+        }
         val original = journal.get(originalId)
         if (original?.undoEligible != true || journal.undoFor(originalId) != null) {
             return@exclusive OperationResult.Rejected(OperationError.CONFLICT)
