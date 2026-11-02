@@ -46,3 +46,8 @@ acceptance remains the owner's responsibility; no device test is claimed.
   bundled Kotlin; Build 1 stores no organizer data and disables legacy backup.
 - Gradle reports dependency/plugin deprecations affecting a future Gradle upgrade;
   the pinned Gradle 9.8.2 build succeeds without suppressing checks.
+- Published [PR #1](https://github.com/KroflaFPS/s26-download-organizer/pull/1) from
+  `feat/build-1-foundation`. The [pull-request Actions run](https://github.com/KroflaFPS/s26-download-organizer/actions/runs/41511540170)
+  for implementation commit `aa929db` passed tests, lint, compilation, and artifact
+  uploads. Confirmed the non-expired `s26-download-organizer-build-1-debug` APK
+  artifact and `build-1-verification-reports` artifact, retained until 2026-11-16.

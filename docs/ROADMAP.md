@@ -16,7 +16,8 @@ are implemented; device acceptance and published CI evidence are tracked separat
   in the cloud workspace.
 - [x] Add GitHub Actions wrapper validation, caching, tests, lint, debug APK build,
   and artifact upload.
-- [ ] Verify a successful published GitHub Actions run and downloadable artifact.
+- [x] Verify a successful published GitHub Actions run and downloadable artifact
+  ([Build 1 run](https://github.com/KroflaFPS/s26-download-organizer/actions/runs/41511540170)).
 - [ ] Owner installs and launches the APK on the Galaxy S26 Ultra (Android 17).
 
 ## 2. Storage access and read-only inventory
