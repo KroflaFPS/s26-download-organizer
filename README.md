@@ -1,139 +1,188 @@
 # S26 Download Organizer
 
-An offline Android download organizer for the Samsung Galaxy S26 Ultra on Android
-17. Build 1 was merged through [PR #1](https://github.com/KroflaFPS/s26-download-organizer/pull/1)
-and owner-tested. **Build 2 adds All Files Access setup and a read-only Downloads
-inventory.** File organization remains inactive. Build 2 reads metadata only;
-it never opens file contents, moves, renames, copies, deletes, or changes files.
-Build 2 is not device-accepted until KroflaFPS tests it on the S26 Ultra.
+Offline Android organizer for the Samsung Galaxy S26 Ultra on Android 17.
+Build 2 was merged at `86082b4b887a82d66cef41ea8072428d50f7f254` through PR #2
+and owner-tested, as confirmed by KroflaFPS. Its permission flow, inventory,
+light/dark theme, launcher and toolchain are preserved.
 
-Future builds will organize downloads under `/storage/emulated/0/Organized/`
-using conservative readiness checks, local classification, safe journaled moves,
-and hybrid background detection/reconciliation.
+**Build 3 is an engineering-only, mutation-disabled build. It is NOT approved
+for real-file move/Undo testing.** Downloads stays read-only. Automatic
+organizing is not active. No owner signing credentials are assumed to exist.
 
-## Build and verification
+The implemented subset is a persistent Room journal, operation history and
+review dialogs, a capability-based single-file coordinator, and conservative
+recovery/Undo logic tested with disposable filesystem fixtures. The shipping
+Android adapter has no writer or deletion capability; it cannot certify shared-
+storage recovery evidence. Signing alone cannot unlock it. This is a deliberate
+fail-closed release gate, not a working Android move feature disguised as success.
 
-The project uses JDK 21, AGP 9.5.0 (built-in Kotlin 2.2.10), Gradle 9.8.2,
-Compose BOM 2026.09.00, and the matching Kotlin Compose compiler plugin.
-Minimum Android version is 8.0/API 26; compile/target SDK is Android 17/API 37.
-See [architecture](docs/ARCHITECTURE.md) for version choices and package boundaries.
+## Implemented behavior and limits
 
-With JDK 21 and Android command-line tools configured (`ANDROID_HOME`):
+- Primary shared Downloads metadata inventory and All Files Access setup on API
+  30+. Settings success is never assumed to mean permission was granted.
+- API 26–29 still launch with an unsupported-inventory explanation. No legacy or
+  unrelated permissions, network access, services, workers or boot receivers.
+- Review a regular, apparently eligible file with **Review move**. The dialog
+  shows source/target and requires confirmation that downloading has finished;
+  **Confirm move remains disabled**. Known temporary names are not eligible.
+- Actual Room-backed history (empty until operations exist), journal-open errors,
+  and **Check recovery**. No fabricated history. Unresolved records are prominent.
+- Recovery is bounded, evidence-only and never retries, publishes, removes files,
+  or cleans up orphans. Without permission it defers. With this Android adapter,
+  nonempty pending records remain unresolved because trusted identity evidence
+  cannot be established. An empty journal does not prove hardware crash safety.
+- Undo is offered only for sufficiently verified completed moves with no prior
+  reverse request. Its execution is disabled in this APK. Copy-only/unresolved
+  operations never promise Undo. Replace/Overwrite is never an option.
+
+The core forward target is **Organized/Other/** only. No extension classification
+or other category routing is implemented. The installed APK creates neither
+Organized/ nor partial outputs, and never opens user file contents. The existing
+boundary-aware inventory exclusion for Organized/ remains in place.
+
+## Build and tests
+
+The unchanged baseline is AGP 9.5.0, Gradle 9.8.2, JDK 21, Kotlin/Compose compiler
+2.2.10, Compose BOM 2026.09.00, compile/target API 37, minimum API 26, one `:app`.
+Build 3 uses versionCode 3/versionName 0.3.0. Stable Room 2.8.5 and KSP2 2.3.4
+were selected after checking the official documentation and then compiling with
+this toolchain. Robolectric 4.16.1 is test-only.
 
 ```sh
 sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
 ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+python3 -m unittest discover -s tools -p 'test_*.py'
+python3 tools/check_room_schema.py
 ```
 
-The APK is `app/build/outputs/apk/debug/app-debug.apk`. There is no custom signing
-configuration: Android's ordinary debug key is used. JVM tests enforce the
-source and merged manifest contracts; lint and compilation validate Android/Compose
-configuration. These checks do not replace device installation and runtime tests.
+Set JAVA_HOME to JDK 21 and ANDROID_HOME to the SDK. The signing-script tests
+use disposable generated keys and the newly built APK; they never need owner
+credentials. The schema check expects schemas to be committed/staged and fails
+on generated drift or unversioned exports. Normal builds do not need secrets.
 
-## Get the APK using GitHub Actions (no PC required)
+JVM tests include real fixture I/O, no-clobber link races, bounded SHA-256 copies,
+source/destination changes, injected failures and termination at each important
+boundary, Undo conflicts, idempotent recovery, actual generated Room DAO/native
+SQLite close/reopen tests, missing-migration failure, UI gate tests, and Build 2
+regressions. Fixture-only conditional removal is a closed-world contract model,
+**not an Android atomic-unlink implementation**. Throwing a simulated termination
+and reopening SQLite are not power-loss, device-reboot or Android 17 tests.
 
-1. Open this repository in a browser while signed into GitHub. Select **Actions**
-   → **Build debug APK**.
-2. Open the successful run for the intended branch/commit. Pushes to `main`,
-   `develop`, `feat/**`, `feature/**`, and `fix/**`, and pull requests trigger builds.
-   After the workflow exists on the default branch, you can also select
-   **Run workflow**, choose a branch, and run it manually.
-3. Confirm both the JVM test step and the lint/APK step succeeded. Under
-   **Artifacts**, download **s26-download-organizer-build-2-debug**. GitHub delivers
-   a ZIP containing `app-debug.apk`. Artifacts expire after 14 days; run the
-   workflow again if the artifact has expired. Test/lint reports are in the
-   separate **build-2-verification-reports** artifact.
-4. On the S26 Ultra, use **My Files** to find the downloaded ZIP (normally in
-   Downloads), extract it, and tap `app-debug.apk`.
-5. If Android asks, allow **Install unknown apps** for the app opening the APK
-   (for example My Files or the browser), then return and tap **Install**. Samsung
-   Auto Blocker or a managed-device policy may block sideloading; if so, review
-   **Settings → Security and privacy** and the device's installation policy.
-   Restore any temporary installation setting after installation.
-6. Launch **S26 Download Organizer** from the installer or app drawer. Confirm
-   **Build 2**, **Foundation ready**, and the read-only/inactive-organization explanation.
-   Check light/dark mode, rotation, and a larger system font size. Report the
-   workflow commit and any installation/runtime error to the project.
+See [architecture](docs/ARCHITECTURE.md) for the exact state/evidence model,
+retained staging aliases, deletion race, durability limits and remaining gates.
 
-Debug APKs are for development. Fresh CI runners may create different debug
-signing keys; an APK from a later run may fail to update the previous installation
-with a signature mismatch. For Build 2, uninstall the previous debug app if signatures conflict, then
-install the new APK. This removes app-private data; future builds with persistent
-history will need a deliberate development signing/data-retention policy.
+## Download the engineering APK (no local PC required)
 
-## Storage access and inventory
+1. Sign into GitHub, open this repository → **Actions → Build debug APK**.
+2. Choose a successful run for the intended branch/commit. Download
+   **s26-download-organizer-build-3-engineering-debug** under **Artifacts**.
+3. Extract the ZIP in Samsung **My Files**, then tap `app-debug.apk`. Permit
+   installation from the opening app if Android prompts. Samsung Auto Blocker
+   or device policy may require reviewing **Settings → Security and privacy**.
+4. Launch and verify **Build 3 · Engineering**, the disabled-mutation explanation,
+   and the preserved Downloads setup/inventory. Artifacts expire after 14 days.
+   Reports and exported schema are in **build-3-verification-reports**.
 
-On Android 11/API 30 and newer, tap **Open Settings** to grant **All Files Access**.
-This is a special Settings grant, not an ordinary runtime permission dialog.
-The app first opens its package-specific All Files Access page, then falls back
-to the general list or its app-details page when unavailable. If all screens
-are unavailable, it explains how to find the setting manually. Opening Settings
-never counts as a grant. Returning to the app checks the real grant again.
+Ordinary PR/push artifacts use an ephemeral Android debug key. They are explicitly
+engineering-only. A differently signed APK may not update an installed Build 2.
+Build 2 has no operation journal, but **do not blindly uninstall an installed
+Build 3 or clear its data**: this deletes its recovery journal. Only transition
+from an empty engineering journal after checking it and retaining any necessary
+records. Once journaled user operations are enabled in a future audited build,
+updates must preserve signature and application data.
 
-All Files Access is the chosen strategy for this personal sideloaded organizer
-and will eventually support organizing downloads. Its broad grant does not
-expand Build 2's behavior: only immediate children of primary shared Downloads
-are listed. No other source, SD card, work profile, or subfolder is scanned.
-Files, folders, and symbolic links are indicated separately; links are never
-followed. Hidden and Unicode names are preserved. File size is shown in bytes,
-and dates use the device's locale/time zone. An extension is a filename suffix,
-not content classification. Missing metadata is labeled unavailable, and
-changing/inaccessible entries produce a partial-list notice or an error.
+## Stable development signing and journal retention
 
-The list is a snapshot: **Refresh** rereads metadata; there is no background
-monitoring. Scans and sorting run off the UI thread. Repeated refresh taps do
-not overlap scans. Pausing clears the displayed inventory and cancels the scan;
-resuming rechecks access and scans again only if authorized. Revocation returns
-to setup without restoring stale results. No inventory is saved to disk.
+No keystore, password or private key belongs in Git. The optional workflow path
+is implemented but has not been run with owner credentials. It still creates a
+**mutation-disabled engineering APK**, not an approved operational release.
 
-The `Organized/` destination is never created or modified. A normalized,
-component-boundary policy excludes that root and descendants if sources overlap
-in future configurations; sibling names such as `Organized-backup` are allowed.
+Owner provisioning (use a trusted private terminal with JDK/keytool; a private
+Codespace can be used without a local PC):
 
-API 26–29 can launch the dashboard but intentionally cannot list Downloads in
-Build 2. They receive an accurate explanation and no legacy permission request.
-Samsung-specific Settings/storage behavior requires real-device validation.
-The app has no network permission, analytics, services, or workers.
+1. Outside the repository, use `umask 077` and generate a long-lived development
+   key. Enter passwords interactively; do not put passwords in command arguments:
 
-## S26 Ultra device acceptance checklist (owner testing required)
+   ```sh
+   keytool -genkeypair -storetype PKCS12 -keystore s26-development.p12 \
+     -alias s26-development -keyalg RSA -keysize 3072 -validity 3650 \
+     -dname "CN=S26 Development"
+   keytool -list -v -keystore s26-development.p12 -alias s26-development
+   ```
 
-1. Install the Build 2 artifact as described above. If a Build 1 signature
-   conflicts, uninstall the old debug app first (app-private data is removed).
-2. With All Files Access off, launch: confirm Build 2, the read-only explanation,
-   setup view, and no file list. No Settings page should open automatically.
-3. Tap **Open Settings**, then return without granting. Confirm setup remains.
-   Grant access on a second visit and return: confirm progress, then real entries
-   matching the immediate Downloads contents in My Files.
-4. Check names (including hidden/Unicode/spaces), file versus folder indicators,
-   extensions, zero-byte sizes, modification dates, count, and newest-first order.
-   Folder contents and symlink targets must not appear as separate entries.
-5. Tap **Refresh** repeatedly. Confirm one loading state, responsive scrolling,
-   and an updated count/list. With a large existing inventory, scroll through it;
-   there should be no thumbnails, freezing, or extra file actions.
-6. Revoke All Files Access in Settings and return. Confirm the old list is gone
-   and setup is shown. Grant again and confirm recovery. Repeat after rotation
-   or relaunch; verify dark mode and larger fonts.
-7. If Downloads is already empty, confirm the empty message and working Refresh.
-   If another app changes/removes a file during a scan, confirm safe refresh or
-   an actionable partial/error message. Do not delete personal files just to test.
-   Retry after any temporary storage/access error; no crash or false empty success
-   should occur. OEM-unavailable settings/error paths are also covered by JVM
-   tests where practical, but cannot all be forced on a normal phone.
-8. Compare file contents, names, sizes and modification dates before/after using
-   My Files or existing trusted tooling. Confirm the app creates no Organized/
-   folder and changes no Downloads entries. Record commit, Android/One UI version,
-   observed results, and any error; Build 2 acceptance remains unchecked until then.
+2. Keep an encrypted offline backup of the keystore and credentials. Record the
+   public SHA-256 certificate fingerprint independently; do not change the key
+   or expected fingerprint between builds.
+3. In GitHub Settings → Environments, create **development-signing**, restrict it
+   to `main`, and configure required owner approval before provisioning secrets.
+   Add these **environment secrets**, not repository files:
+   `S26_DEV_KEYSTORE_BASE64`, `S26_DEV_STORE_PASSWORD`, `S26_DEV_KEY_ALIAS`,
+   `S26_DEV_KEY_PASSWORD`, `S26_DEV_CERT_SHA256`.
+   The first is base64 of the private keystore; the last is the public certificate
+   SHA-256 (with or without colons). PKCS12 commonly uses the same store/key password.
+   Use GitHub's secret UI or `gh secret set --env development-signing` with stdin/
+   interactive prompts; never paste credentials into issues, PRs, logs or chat.
+4. After owner review/merge, manually dispatch the workflow on **main** with
+   **stable_signing** enabled and approve the protected environment job. PRs and
+   other refs cannot run this signing job. The ordinary verification job must pass.
+5. CI decodes private material only in runner temporary storage, re-signs the
+   engineering APK, verifies the exact pinned certificate, removes temporary
+   credentials and uploads **s26-download-organizer-build-3-stable-signed-engineering**
+   with a public `certificate.txt` report. Missing credentials or a pin mismatch
+   fail that job; it does not present the ephemeral APK as stable-signed.
+6. Compare the certificate report to the independently retained fingerprint on
+   every build. Android enforces matching signatures for normal in-place updates;
+   do not bypass a mismatch by uninstalling an app with a nonempty journal.
 
-Build 3 will add the safe move engine and persistent journal. Readiness,
-classification, automation, routing customization, notifications, and Undo remain
-future work; none is enabled by granting access in Build 2.
+The stable signature supports in-place upgrades; it does **not** protect against
+uninstall, Clear data, device loss or storage failure. The journal is app-private
+SQLite with backup/device-transfer exclusions to avoid restoring stale operation
+state onto a different filesystem. No remote backup or export service exists.
+Schema version 1 is exported. Future schema changes must bump the DB version,
+retain old schemas, add/test explicit versioned migrations, and preserve records.
+Missing migrations fail closed; there is no destructive migration fallback.
 
-## Documentation and collaboration
+## Current S26 Ultra acceptance checklist (read-only engineering build)
 
-- [Architecture and technical decisions](docs/ARCHITECTURE.md)
-- [Seven-milestone roadmap](docs/ROADMAP.md)
-- [Changelog](docs/CHANGELOG.md)
+1. Record the commit and Android/One UI version. Install only after resolving the
+   signature/journal-retention guidance above. Confirm the engineering banner.
+2. With All Files Access denied, confirm setup and no inventory. Open Settings,
+   cancel, return, then grant and return: confirm real primary Downloads entries.
+3. Compare names, types, extensions, sizes, dates, count, hidden/Unicode names,
+   zero-byte files and newest-first order with My Files. Subfolders/link targets
+   must not be enumerated. Test Refresh, large-list scrolling, rotation, fonts
+   and light/dark mode. Revoke access and confirm the old inventory disappears.
+4. Review an eligible file. Check its source, Other/ target and finished-download
+   warning. Confirm must remain disabled even after checking the box. Cancel.
+   Folders, symlinks and known in-progress names must not offer this action.
+5. Check history/recovery. A fresh install should show an empty journal; denial
+   must defer recovery. Relaunch/force-stop/restart the device to check launch
+   behavior, but do not interpret an empty-journal restart as operation recovery proof.
+6. Confirm no Organized/ folder or partial output is created and no Downloads
+   entry changes name, content, size or modification date. Do not remove personal
+   files merely to test failure states. Do not attempt real move/Undo tests yet.
+7. Report results to KroflaFPS/Ada/Jinx. Independent audit and all Build 3 hardware
+   mutation/crash/durability acceptance remain pending.
 
-Gemini supports research and auditing; ChatGPT supports architecture/task framing;
-Codex implements the app; KroflaFPS leads the project and tests on-device; Ada (ChatGPT) is the lead architect
-and Jinx (Gemini) is the independent auditor.
+Future operational acceptance additionally requires stable signing approval,
+review of Android root/descriptor/no-clobber semantics, safe copy-only behavior
+when deletion cannot be proven, persistent journal restart tests, idempotent
+recovery, Undo conflicts, interrupted I/O and controlled process termination on
+**disposable** device files. Power-loss testing and sudden-loss guarantees are
+not claimed. No release gate may be bypassed just to enable a button.
+
+## Roadmap and collaboration
+
+Builds 4–7 retain readiness verification, local classification, hybrid background
+automation, routing customization, notifications and UI refinement. Build 3
+blockers must be resolved explicitly; Build 4 readiness alone cannot fix deletion
+TOCTOU races. No four-tab redesign, empty category grids, services or workers
+were added. Media indexing is deferred while operations are disabled; future
+index refresh must not be confused with movement or browser download history.
+
+- [Architecture and safety boundaries](docs/ARCHITECTURE.md)
+- [Roadmap and incomplete release gates](docs/ROADMAP.md)
+- [Changelog and verification](docs/CHANGELOG.md)
+
+KroflaFPS owns the project and device testing; Ada (ChatGPT) leads architecture;
+Jinx (Gemini) independently audits; Codex implements. No independent audit is claimed.

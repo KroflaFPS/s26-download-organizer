@@ -4,6 +4,8 @@ import com.android.build.api.artifact.SingleArtifact
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 android {
@@ -17,8 +19,8 @@ android {
         applicationId = "com.kroflafps.s26downloadorganizer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     buildFeatures {
@@ -29,6 +31,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 kotlin {
@@ -42,12 +48,15 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
 }
 
 androidComponents.onVariants(androidComponents.selector().withBuildType("debug")) { variant ->
@@ -63,5 +72,8 @@ androidComponents.onVariants(androidComponents.selector().withBuildType("debug")
 val sourceManifest = layout.projectDirectory.file("src/main/AndroidManifest.xml")
 tasks.withType<Test>().configureEach {
     inputs.file(sourceManifest).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(layout.projectDirectory.file("schemas/com.kroflafps.s26downloadorganizer.history.JournalDatabase/1.json"))
+    systemProperty("s26.schema", layout.projectDirectory.file("schemas/com.kroflafps.s26downloadorganizer.history.JournalDatabase/1.json").asFile.absolutePath)
     systemProperty("s26.sourceManifest", sourceManifest.asFile.absolutePath)
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
 }

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">S26 Download Organizer</string>
-    <string name="build_identifier">Build 2</string>
+    <string name="build_identifier">Build 3 · Engineering</string>
     <string name="foundation_status">Foundation ready</string>
-    <string name="foundation_description">File organization is not active. Build 2 only lists Downloads metadata; it never changes your files.</string>
-    <string name="development_notice">Early development build · Read-only Downloads inventory</string>
+    <string name="foundation_description">Automatic organizing is not active. Build 3 engineering: file changes are disabled by safety gates. Downloads inventory remains read-only.</string>
+    <string name="development_notice">Engineering build · Persistent history and recovery foundation</string>
     <string name="permission_title">Storage access required</string>
-    <string name="permission_explanation">All Files Access is intended for organizing downloaded files in later builds. Build 2 only reads filenames, types, sizes and modification dates from the top level of Downloads. It does not read file contents, scan inside folders, or move, copy, rename or delete files.</string>
+    <string name="permission_explanation">All Files Access is intended for organizing downloaded files in later builds. This engineering build only reads filenames, types, sizes and modification dates from the top level of Downloads. It does not read file contents, scan inside folders, or move, copy, rename or delete files.</string>
     <string name="permission_navigation">Tap Open Settings and allow access for S26 Download Organizer. If a list of apps opens, choose this app. Return here when finished; access will be checked again.</string>
     <string name="open_settings">Open Settings</string>
     <string name="settings_unavailable">Storage settings could not be opened. Open your phone’s Settings, find Special app access → All files access, and choose S26 Download Organizer. Return here to check access again.</string>

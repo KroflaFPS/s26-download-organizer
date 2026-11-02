@@ -7,3 +7,7 @@ local.properties
 *.jks
 *.keystore
 .DS_Store
+
+*.p12
+*.pfx
+__pycache__/
