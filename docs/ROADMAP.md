@@ -1,27 +1,67 @@
-# Project Roadmap & Backlog
+# Project roadmap and backlog
 
-## Phase 1: Project Setup & CI/CD Pipeline
-- [x] Create GitHub repository (`s26-download-organizer`).
-- [x] Setup `docs/` tracking directory (`ARCHITECTURE.md`, `CHANGELOG.md`, `ROADMAP.md`).
-- [ ] Add GitHub Actions workflow (`.github/workflows/build-apk.yml`) to auto-build APKs in the cloud.
-- [ ] Initialize base Gradle / Kotlin Android project skeleton.
+The original watcher, safe storage engine, local classifiers, routing rules,
+notifications, history/Undo, and Compose UI goals remain. The sequence now puts
+storage validation and recovery before background automation. Only checked items
+are implemented; device acceptance and published CI evidence are tracked separately.
 
-## Phase 2: Core Watcher & Storage Engine
-- [ ] Implement `FileObserver` watchdog on `/storage/emulated/0/Download/`.
-- [ ] Add download completion detector (handling `.crdownload`, `CLOSE_WRITE`, and `MOVED_TO` events).
-- [ ] Safe file move utility with collision handling (avoiding overwrites).
+## 1. Foundation and CI/CD — Build 1
 
-## Phase 3: Classifier Engine
-- [ ] Implement APK parser using `PackageManager.getPackageArchiveInfo()` (extract app name, category, icon).
-- [ ] Implement Document classifier (PDF/EPUB/DOCX text & metadata heuristic).
-- [ ] Implement Media & Archive inspector (MIME type + inner archive file types).
+- [x] Create repository and architecture, roadmap, and changelog documents.
+- [x] Initialize one Gradle Kotlin DSL application module and version catalog.
+- [x] Add the complete Gradle wrapper and debug signing defaults.
+- [x] Add the Build 1 Material 3 Compose dashboard with light/dark support.
+- [x] Add JVM manifest contract tests.
+- [x] Compile Kotlin/Compose, pass JVM tests/lint, and generate a signed debug APK
+  in the cloud workspace.
+- [x] Add GitHub Actions wrapper validation, caching, tests, lint, debug APK build,
+  and artifact upload.
+- [x] Verify a successful published GitHub Actions run and downloadable artifact
+  ([Build 1 run](https://github.com/KroflaFPS/s26-download-organizer/actions/runs/41511540170)).
+- [ ] Owner installs and launches the APK on the Galaxy S26 Ultra (Android 17).
 
-## Phase 4: Dynamic Router & Rules
-- [ ] Automatic destination directory resolver (`Installers/{Category}/`, `Documents/{Type}/`).
-- [ ] Notification action card ("Moved [file] to [folder] [Undo]").
-- [ ] In-memory / Room database undo log.
+## 2. Storage access and read-only inventory
 
-## Phase 5: Minimalist UI (Jetpack Compose)
-- [ ] Simple dashboard showing recent sorting events.
-- [ ] Toggle master service on/off.
-- [ ] Custom folder mapping overrides.
+- [ ] Validate provisional all-files access and explicit permission flow on-device.
+- [ ] Implement independently testable storage adapters and permission revocation handling.
+- [ ] Read-only inventory of Downloads with real file information; no file mutations.
+- [ ] Exclude `/storage/emulated/0/Organized/` and its descendants from all source scans.
+- [ ] Handle inaccessible storage, temporary files, and changing inventory safely.
+
+## 3. Safe move engine and persistent operation journal
+
+- [ ] Persist operation intent, transitions, outcomes, and recovery information.
+- [ ] Implement verified moves with interruption and partial-failure recovery.
+- [ ] Preserve duplicates with concurrency-safe unique filename allocation; never overwrite.
+- [ ] Implement history and reversible Undo with conflict checks.
+- [ ] Test crash recovery, collision races, missing sources, and storage failures.
+
+## 4. File readiness verification
+
+- [ ] Conservatively defer temporary and unstable downloads.
+- [ ] Combine repeated observations with available completion evidence.
+- [ ] Revalidate readiness and source identity immediately before a move.
+- [ ] Test changing files, delayed writes, renames, and interrupted downloads.
+
+## 5. Content classification
+
+- [ ] Inspect APK metadata locally with `PackageManager.getPackageArchiveInfo()`.
+- [ ] Classify documents (including PDF/EPUB/DOCX) with local metadata/text heuristics.
+- [ ] Inspect media and archives using MIME types and bounded header/content inspection.
+- [ ] Handle unknown or malformed content safely with an Other fallback.
+
+## 6. Hybrid background automation
+
+- [ ] Add opportunistic FileObserver/event detection where supported.
+- [ ] Add bounded WorkManager reconciliation for missed events and interruptions.
+- [ ] Deduplicate candidates and respect permission/background execution constraints.
+- [ ] Combine readiness, classification, routing, and journaled operations.
+- [ ] Validate Samsung/Android 17 behavior without a permanent dataSync service.
+
+## 7. Routing customization, notifications, and UI refinement
+
+- [ ] Route into the unified Organized/ category tree and configurable subfolders.
+- [ ] Add custom folder/rule mappings and real automation controls.
+- [ ] Add grouped notification batches and permission handling.
+- [ ] Expose persistent individual activity history and Undo in the dashboard.
+- [ ] Refine accessibility, status/error presentation, and owner-tested workflows.
