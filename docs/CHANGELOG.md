@@ -51,3 +51,42 @@ acceptance remains the owner's responsibility; no device test is claimed.
   for implementation commit `aa929db` passed tests, lint, compilation, and artifact
   uploads. Confirmed the non-expired `s26-download-organizer-build-1-debug` APK
   artifact and `build-1-verification-reports` artifact, retained until 2026-11-16.
+
+
+### Build 2 — Storage access and read-only Downloads inventory
+- Baseline: Build 1 was merged via PR #1 and owner-tested on the S26 Ultra,
+  as reported by KroflaFPS. Toolchain and one-module structure are preserved.
+- Bumped versionCode to 2/versionName to 0.2.0 and dashboard/artifact names to Build 2.
+- Added only MANAGE_EXTERNAL_STORAGE, with an explicit explanation, user-initiated
+  package-specific Settings intent, ordered general/app-details fallback, and
+  real grant rechecks. No ordinary runtime permission dialog or unrelated grants.
+- Added accurate unsupported-inventory behavior on API 26–29, preserving launch support.
+- Added Android-isolated primary Downloads resolution and a metadata-only NIO
+  scanner: immediate children, file/folder/link indicators, names/extensions,
+  nullable sizes/dates, deterministic ordering, no symlink traversal or recursion.
+- Added normalized boundary-aware Organized/ source exclusion without creating it.
+- Added ViewModel/StateFlow presentation, off-main serialized scans, duplicate-refresh
+  prevention, pause clearing/cancellation, stale-result rejection, error/retry,
+  partial metadata notices, empty state, and a lazy file list using the existing theme.
+- Added lifecycle Compose/ViewModel at the existing version and coroutines core/test;
+  no new framework, storage parser, database, worker, or service.
+- Added fixture/fake-based JVM tests and explicit source/merged manifest allowlists.
+- Preserved Actions tests/lint/assembleDebug and report uploads, using Build 2 artifact names.
+- Updated storage rationale, compatibility limits, read-only guarantees, future
+  boundaries, debug-signature guidance, and the owner's acceptance checklist.
+
+Build 2 has no file mutation, readiness verification, classification, routing,
+monitoring, journal/Undo, notification posting, or network analysis. Device
+acceptance is pending KroflaFPS's testing; CI cannot prove Samsung storage behavior.
+
+
+### Build 2 local verification
+- `testDebugUnitTest lintDebug assembleDebug` passed in the cloud workspace:
+  32 JVM tests, zero failures/errors/skips, Kotlin/Compose compilation and APK build successful.
+- Lint: zero errors, five advisory warnings (approved all-files Play policy warning,
+  newer Kotlin/Compose and coroutines core/test versions available, and the existing
+  Android 12+ backup-rules advisory). No lint suppression or toolchain upgrade was added.
+- actionlint, APK debug signature verification, and 16 KB ZIP alignment passed.
+  Packaged app ID, versionCode 2/versionName 0.2.0, minimum API 26, target API 37,
+  launcher, and explicit permission allowlist were verified.
+- No on-device Build 2 execution or acceptance is claimed.

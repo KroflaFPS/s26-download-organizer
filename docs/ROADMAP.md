@@ -18,15 +18,23 @@ are implemented; device acceptance and published CI evidence are tracked separat
   and artifact upload.
 - [x] Verify a successful published GitHub Actions run and downloadable artifact
   ([Build 1 run](https://github.com/KroflaFPS/s26-download-organizer/actions/runs/41511540170)).
-- [ ] Owner installs and launches the APK on the Galaxy S26 Ultra (Android 17).
+- [x] Build 1 merged through PR #1 and installed/launched on the Galaxy S26 Ultra
+  (Android 17), as reported by KroflaFPS.
 
 ## 2. Storage access and read-only inventory
 
 - [ ] Validate provisional all-files access and explicit permission flow on-device.
-- [ ] Implement independently testable storage adapters and permission revocation handling.
-- [ ] Read-only inventory of Downloads with real file information; no file mutations.
-- [ ] Exclude `/storage/emulated/0/Organized/` and its descendants from all source scans.
-- [ ] Handle inaccessible storage, temporary files, and changing inventory safely.
+- [x] Implement independently testable storage adapters and permission revocation handling.
+- [x] Read-only metadata inventory of immediate Downloads entries; no file mutations.
+- [x] Boundary-aware normalized source exclusion for Organized/ and descendants;
+  no creation or traversal of the destination.
+- [x] Handle inaccessible storage and changing/missing entries with errors or partial notices;
+  temporary files are listed without claiming they are ready for future movement.
+- [x] Add permission setup, explicit API 26–29 gating, lazy inventory UI and Refresh.
+- [x] Add temporary-fixture, policy, screen-state and source/merged-manifest tests.
+- [x] Verify Build 2 JVM tests/lint/debug APK in the cloud workspace.
+- [ ] Confirm a successful published Build 2 Actions run and APK artifact.
+- [ ] Owner completes the Build 2 acceptance checklist on the S26 Ultra.
 
 ## 3. Safe move engine and persistent operation journal
 
