@@ -9,6 +9,8 @@ import androidx.annotation.RequiresApi
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.io.IOException
+import java.io.InterruptedIOException
 
 /** Public Android APIs only. /proc/self/fd availability is checked at runtime, never assumed.
  * No path-only fallback and no writable open modes. FUSE/SELinux behavior needs S26 validation.
@@ -18,7 +20,7 @@ internal class AndroidReadHandles : ReadHandleFactory {
     override fun canonicalPrimary(path: Path): Path = path.toRealPath()
     override fun openPrimary(path: Path): ReadHandle = open(path.toString(), directory = true)
 
-    private class Handle(private val descriptor: ParcelFileDescriptor) : ReadHandle {
+    private class Handle(private val descriptor: ParcelFileDescriptor) : PositionalReadHandle {
         private val anchor get() = "/proc/self/fd/${descriptor.fd}"
         override fun metadata(): ReadMetadata = metadata(Os.fstat(descriptor.fileDescriptor))
         override fun resolvedPath(): Path = Paths.get(Os.readlink(anchor))
@@ -28,6 +30,15 @@ internal class AndroidReadHandles : ReadHandleFactory {
         override fun read(buffer: ByteArray, count: Int): Int {
             val bytes = Os.read(descriptor.fileDescriptor, buffer, 0, count)
             return if (bytes == 0) -1 else bytes
+        }
+        override fun readAt(offset: Long, buffer: ByteArray, bufferOffset: Int, count: Int): Int = try {
+            Os.pread(descriptor.fileDescriptor, buffer, bufferOffset, count, offset)
+        } catch (partial: InterruptedIOException) {
+            // Preserve actual-byte accounting; the caller checks cancellation after every return.
+            if (partial.bytesTransferred in 1..count) partial.bytesTransferred else throw IOException()
+        } catch (error: ErrnoException) {
+            if (error.errno in listOf(OsConstants.EACCES, OsConstants.EPERM)) throw SecurityException()
+            throw IOException()
         }
         override fun close() = descriptor.close()
         private fun child(name: String): String {

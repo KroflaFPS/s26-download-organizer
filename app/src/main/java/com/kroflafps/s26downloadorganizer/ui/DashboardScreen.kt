@@ -46,6 +46,8 @@ fun DashboardScreen(
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
     operations: OperationsScreenState,
+    preview: ClassificationScreenState,
+    onPreview: (InventoryEntry) -> Unit,
     onReviewMove: (InventoryEntry) -> Unit,
     onReviewUndo: (OperationHistoryEntry) -> Unit,
     onRecovery: () -> Unit,
@@ -138,11 +140,20 @@ fun DashboardScreen(
                 }
             }
             item(key = "operations-header") { OperationsHeader(operations, onRecovery) }
+            item(key = "classification-preview") {
+                Card(modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("PREVIEW ONLY • NO FILES MOVED", style = MaterialTheme.typography.titleMedium)
+                        Text("Tap Preview type on one file. Suggestions do not prove a finished download, valid content or safety. No destination folders are created.")
+                        Text("Provisional defaults: numbered PDF/APK suffixes need Review; comic ZIPs suggest Ebooks; subtitle sidecars suggest Videos.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
             items(operations.history, key = { "operation-${it.record.id}" }) { item ->
                 OperationHistoryRow(item, operations.busy, onReviewUndo)
             }
             if (state is InventoryScreenState.Loaded) {
-                items(state.inventory.entries, key = { it.id }) { entry -> InventoryRow(entry, operations.busy, onReviewMove) }
+                items(state.inventory.entries, key = { it.id }) { entry -> InventoryRow(entry, operations.busy, onReviewMove, preview, onPreview) }
             }
         }
     }
@@ -150,7 +161,7 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun InventoryRow(entry: InventoryEntry, busy: Boolean, onReview: (InventoryEntry) -> Unit) {
+private fun InventoryRow(entry: InventoryEntry, busy: Boolean, onReview: (InventoryEntry) -> Unit, preview: ClassificationScreenState, onPreview: (InventoryEntry) -> Unit) {
     val type = stringResource(when (entry.type) {
         EntryType.FILE -> R.string.type_file
         EntryType.DIRECTORY -> R.string.type_directory
@@ -180,6 +191,20 @@ private fun InventoryRow(entry: InventoryEntry, busy: Boolean, onReview: (Invent
                     Text(if (bytes != null) stringResource(R.string.size_value, bytes) else stringResource(R.string.size_unavailable))
                 }
                 Text(stringResource(R.string.modified_value, modified ?: unknown))
+                if (entry.type == EntryType.FILE) {
+                    Button(onClick = { onPreview(entry) }, enabled = !(preview.entryId == entry.id && preview.busy)) { Text("Preview type") }
+                    if (preview.entryId == entry.id) {
+                        if (preview.busy) Text("Reading bounded sample…")
+                        preview.result?.let { result ->
+                            Text(result.destination?.let { "Suggestion: ${it.label}" } ?: "${result.decision}: Review")
+                            Text("${result.format} • ${result.confidence}")
+                            Text("Readiness: ${result.safety} • Download completion unproven", style = MaterialTheme.typography.bodySmall)
+                            Text(result.explanation)
+                            if (result.tags.isNotEmpty()) Text(result.tags.joinToString())
+                            Text("Read ${result.usage.totalBytes} bytes (header ${result.usage.headerBytes}/4096; container ${result.usage.containerBytes}/131072) • ${result.usage.outcome}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
                 if (entry.type == EntryType.FILE && entry.sizeBytes != null && entry.modifiedAtMillis != null && OperationPolicy.eligibleName(entry.name)) {
                     Button(onClick = { onReview(entry) }, enabled = !busy) { Text("Review move") }
                 }

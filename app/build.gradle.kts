@@ -19,8 +19,8 @@ android {
         applicationId = "com.kroflafps.s26downloadorganizer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 8
+        versionName = "0.5.0-preview"
     }
 
     buildFeatures {
@@ -42,6 +42,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":classifier"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
