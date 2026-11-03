@@ -1,5 +1,25 @@
 # S26 Download Organizer architecture
 
+## Build 4 read-only telemetry status
+
+Build 4 extends the preserved Build 3.1 baseline with an isolated read-only
+telemetry build type. Generic MOVE/Undo and diagnostic copy remain disabled.
+The new package is `com.kroflafps.s26downloadorganizer.telemetry`; its private
+telemetry schema 1 does not migrate the main journal v2. Normal builds preserve
+the main ID and do not include telemetry sources or WorkManager runtime.
+
+See [Build 4 architecture](BUILD_4_ARCHITECTURE.md) for reviewed official/AOSP
+semantics, the one-shot rearm lifecycle, fenced bounded metadata checkpoints,
+readiness evidence, retention/redaction and the exact PR #4 integration plan.
+The [phone-only checklist](BUILD_4_DEVICE_TEST.md) is pending owner acceptance.
+Native Jobs plus unique WorkManager reconciliation gather evidence only. They
+never authorize file mutation or imply a delivery SLA. Organized remains excluded.
+
+The sections below describe the retained operation foundation; their Android
+writer/deletion gates remain unresolved. PR #3 is merged; PR #4 remains draft and
+unmodified. KroflaFPS reports Build 3.2 synthetic-copy acceptance on the S26 Ultra,
+not independent universal crash/durability certification.
+
 ## Baseline and current release status
 
 Build 1 established the launchable Compose application and CI. Build 2 was merged
@@ -22,7 +42,7 @@ One `:app` module; application ID `com.kroflafps.s26downloadorganizer`.
 AGP 9.5.0, Gradle 9.8.2, JDK 21, built-in Kotlin/Compose compiler 2.2.10,
 Compose BOM 2026.09.00, Material 3, AndroidX Core 1.19.1, Activity 1.13.0,
 Lifecycle 2.11.0, coroutines 1.10.2, compile/target API 37, minimum API 26 and
-JUnit 4.13.2 are retained. Version code/name: 4/0.3.1.
+JUnit 4.13.2 are retained. Build 4 version code/name: 7/0.4.0; telemetry adds -telemetry.
 
 Room 2.8.5, Room Gradle plugin 2.8.5 and **KSP2 2.3.4** add journal generation and
 schema export without replacing AGP's Kotlin plugin. Official guidance checked
@@ -48,16 +68,16 @@ NOFOLLOW_LINKS. Links are listed, not traversed. Missing/inaccessible entries,
 empty sources, revoked access and storage failures retain their Build 2 behavior.
 Ordering is newest modification first, then exact name and normalized identity.
 Normalized Path components exclude Organized/ and descendants, not sibling prefixes.
-No SD card/work-profile/virtual-provider inventory or recursive scanning is added.
+No SD card/work-profile/virtual-provider inventory is added. The separate telemetry adapter adds bounded subfolder metadata pages; the flat inventory remains unchanged.
 
 ## Operation boundaries and roots
 
 `operations` contains platform-independent records, policies, ports, coordinator
 and recovery logic. `history` isolates Room. `storage` retains inventory/adapters;
 `ui` handles observable state/presentation. `OrganizerApplication` owns one journal
-and one coordinator. No DI framework, WorkManager or service is introduced.
+and one coordinator. No DI framework is introduced. WorkManager and the bounded native JobService exist only in the telemetry source set.
 Room's unused multi-instance invalidation service is explicitly removed from the
-merged manifest; source/merged allowlist tests continue rejecting runtime services.
+merged manifest; source/merged allowlist tests reject services in normal builds and allow only the two BIND_JOB_SERVICE services in telemetry. No foreground service is packaged.
 
 The only forward source is an explicitly selected immediate regular file in
 primary Downloads. The sole Build 3 forward target is primary Organized/Other/.
@@ -245,11 +265,8 @@ local classification, rules-based routing, hybrid opportunistic events plus
 WorkManager reconciliation, persistent history/Undo, grouped notification batches,
 and UI refinement. A permanently running dataSync foreground service is not a
 requirement. Preserve duplicates, exclude destinations as sources, and revalidate
-before operations. Future packages detection/processing/readiness/classification/
-routing are not populated prematurely.
+before operations. Readiness now contains pure evidence policies; classification/routing remain future work.
 
 Media index synchronization is considered but deferred while Android mutations
 are disabled; future best-effort indexing cannot establish movement or update
-every browser/third-party download database. No four-tab UI redesign, AMOLED
-restyle, monitoring, notifications, services, boot receiver or remote service is
-implemented. Independent Jinx audit and owner hardware acceptance remain pending.
+every browser/third-party download database. No four-tab UI redesign, AMOLED restyle, automatic organizing, notifications or remote service is implemented. The isolated telemetry variant adds only read-only jobs/work and a boot/package restoration receiver. Independent Jinx audit and owner hardware acceptance remain pending.

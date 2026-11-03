@@ -52,6 +52,7 @@ fun DashboardScreen(
     onDismissOperation: () -> Unit,
     onConfirmOperation: (Boolean, Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    extraPanel: @Composable () -> Unit = {},
 ) {
     // One bounded lazy list handles both the header and rows, including large fonts.
     Scaffold(
@@ -137,6 +138,7 @@ fun DashboardScreen(
                     }
                 }
             }
+            item(key = "extra-diagnostics") { extraPanel() }
             item(key = "operations-header") { OperationsHeader(operations, onRecovery) }
             items(operations.history, key = { "operation-${it.record.id}" }) { item ->
                 OperationHistoryRow(item, operations.busy, onReviewUndo)

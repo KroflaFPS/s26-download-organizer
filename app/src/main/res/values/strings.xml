@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">S26 Download Organizer</string>
-    <string name="build_identifier">Build 3.1 · Engineering</string>
+    <string name="build_identifier">Build 4 · Engineering</string>
     <string name="foundation_status">Foundation ready</string>
-    <string name="foundation_description">Automatic organizing is not active. Build 3.1 engineering: file changes are disabled by safety gates. Downloads inventory remains read-only.</string>
+    <string name="foundation_description">Automatic organizing is not active. Build 4 normal build: file changes are disabled by safety gates. Downloads inventory remains read-only.</string>
     <string name="development_notice">Engineering build · Persistent history and recovery foundation</string>
     <string name="permission_title">Storage access required</string>
     <string name="permission_explanation">All Files Access is intended for organizing downloaded files in later builds. Inventory reads only filenames, types, sizes and dates from Downloads. Recovery may read and hash journaled files locally within strict limits. It does not classify content, scan inside folders, or move, copy, rename or delete files.</string>

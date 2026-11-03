@@ -9,7 +9,7 @@ import com.kroflafps.s26downloadorganizer.domain.StorageAccess
 import com.kroflafps.s26downloadorganizer.storage.AndroidOperationFiles
 import com.kroflafps.s26downloadorganizer.storage.StorageAccessAdapter
 
-class OrganizerApplication : Application() {
+open class OrganizerApplication : Application() {
     private val operationMutex = kotlinx.coroutines.sync.Mutex()
     private val database by lazy { JournalDatabase.open(this) }
     val journal by lazy { RoomOperationJournal(database.journal()) }

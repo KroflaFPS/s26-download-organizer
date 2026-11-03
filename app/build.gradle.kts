@@ -19,12 +19,27 @@ android {
         applicationId = "com.kroflafps.s26downloadorganizer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 7
+        versionName = "0.4.0"
+        buildConfigField("boolean", "TELEMETRY_ENABLED", "false")
+        buildConfigField("boolean", "DIAGNOSTIC_COPY_ENABLED", "false")
+        manifestPlaceholders["telemetryEnabled"] = "false"
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    buildTypes {
+        create("telemetry") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".telemetry"
+            versionNameSuffix = "-telemetry"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("boolean", "TELEMETRY_ENABLED", "true")
+            manifestPlaceholders["telemetryEnabled"] = "true"
+        }
     }
 
     compileOptions {
@@ -49,6 +64,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.room.runtime)
+    "telemetryImplementation"(libs.androidx.work.runtime)
+    "testTelemetryImplementation"(libs.androidx.work.testing)
     ksp(libs.androidx.room.compiler)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -59,18 +76,22 @@ dependencies {
     testImplementation(libs.robolectric)
 }
 
-androidComponents.onVariants(androidComponents.selector().withBuildType("debug")) { variant ->
+androidComponents.beforeVariants(androidComponents.selector().withBuildType("telemetry")) {
+    it.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
+}
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
     val mergedManifest = variant.artifacts.get(SingleArtifact.MERGED_MANIFEST)
     tasks.withType<Test>().configureEach {
-        inputs.file(mergedManifest).withPathSensitivity(PathSensitivity.RELATIVE)
-        doFirst {
-            systemProperty("s26.mergedManifest", mergedManifest.get().asFile.absolutePath)
+        if (name == "test${variant.name.replaceFirstChar { it.uppercaseChar() }}UnitTest") {
+            inputs.file(mergedManifest).withPathSensitivity(PathSensitivity.RELATIVE)
+            doFirst { systemProperty("s26.mergedManifest", mergedManifest.get().asFile.absolutePath) }
         }
     }
 }
 
 val sourceManifest = layout.projectDirectory.file("src/main/AndroidManifest.xml")
 tasks.withType<Test>().configureEach {
+    inputs.dir(layout.projectDirectory.dir("schemas"))
     inputs.file(sourceManifest).withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(layout.projectDirectory.file("schemas/com.kroflafps.s26downloadorganizer.history.JournalDatabase/2.json"))
     systemProperty("s26.schema", layout.projectDirectory.file("schemas/com.kroflafps.s26downloadorganizer.history.JournalDatabase/2.json").asFile.absolutePath)

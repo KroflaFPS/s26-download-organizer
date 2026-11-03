@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build:
-    name: Test and assemble debug APK
+    name: Test normal and read-only telemetry apps
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -48,10 +48,13 @@ jobs:
         uses: gradle/actions/setup-gradle@4c125117fe7c5aed11272ec4213f602f012f89f2 # v5
 
       - name: Run JVM unit tests
-        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest testTelemetryUnitTest --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process
 
-      - name: Check Android lint and compile debug APK
-        run: ./gradlew --no-daemon --stacktrace lintDebug assembleDebug
+      - name: Check Android lint
+        run: ./gradlew --no-daemon --stacktrace lintDebug lintTelemetry --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process
+
+      - name: Compile normal and read-only telemetry APKs
+        run: ./gradlew --no-daemon --stacktrace assembleDebug assembleTelemetry --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process
 
       - name: Verify protected signing script with disposable test credentials
         run: python3 -m unittest discover -s tools -p "test_*.py"
@@ -59,11 +62,16 @@ jobs:
       - name: Verify exported Room schema is versioned
         run: python3 tools/check_room_schema.py
 
-      - name: Upload debug APK
+      - name: Verify read-only telemetry APK identity and public signing report
+        run: python3 tools/telemetry_apk.py app/build/outputs/apk/telemetry/app-telemetry.apk --output app/build/outputs/apk/telemetry/certificate.txt
+
+      - name: Upload read-only telemetry APK only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: s26-download-organizer-build-3-1-engineering-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: s26-build-4-readonly-telemetry
+          path: |
+            app/build/outputs/apk/telemetry/app-telemetry.apk
+            app/build/outputs/apk/telemetry/certificate.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -71,11 +79,14 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: build-3-1-verification-reports
+          name: build-4-verification-reports
           path: |
             app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/tests/testTelemetryUnitTest/
             app/build/test-results/testDebugUnitTest/
+            app/build/test-results/testTelemetryUnitTest/
             app/build/reports/lint-results-debug.*
+            app/build/reports/lint-results-telemetry.*
             app/schemas/
           if-no-files-found: warn
           retention-days: 14
@@ -104,7 +115,7 @@ jobs:
       - name: Download this run's engineering APK
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
-          name: s26-download-organizer-build-3-1-engineering-debug
+          name: s26-build-4-readonly-telemetry
           path: unsigned-input
       - name: Sign and verify pinned certificate
         env:
@@ -117,7 +128,7 @@ jobs:
       - name: Upload stable-signed engineering APK and public certificate report
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: s26-download-organizer-build-3-1-stable-signed-engineering
+          name: s26-build-4-stable-signed-readonly-telemetry
           path: ${{ runner.temp }}/s26-signed-output/
           if-no-files-found: error
           retention-days: 14

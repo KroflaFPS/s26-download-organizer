@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+from telemetry_apk import verify, PACKAGE
 
 MARKER = "com.kroflafps.s26downloadorganizer.MUTATIONS_ENABLED"
 
@@ -33,14 +34,15 @@ def main():
     if not re.fullmatch(r"[0-9a-f]{64}", pin):
         raise SystemExit("Pinned signing certificate must be a SHA-256 fingerprint")
     tools = Path(os.environ["ANDROID_HOME"]) / "build-tools/37.0.0"
-    input_apk = Path("unsigned-input/app-debug.apk")
+    input_apk = Path("unsigned-input/app-telemetry.apk")
+    verify(input_apk)
     tree = subprocess.check_output([str(tools / "aapt"), "dump", "xmltree", str(input_apk), "AndroidManifest.xml"], text=True)
     if not mutations_disabled_in_xmltree(tree):
         raise SystemExit("APK is not explicitly marked mutation-disabled; signing refused.")
     runner_temp = Path(os.environ["RUNNER_TEMP"])
     output_dir = runner_temp / "s26-signed-output"
     output_dir.mkdir(mode=0o700, exist_ok=False)
-    output = output_dir / "s26-build-3-1-stable-signed-engineering.apk"
+    output = output_dir / "s26-build-4-stable-signed-readonly-telemetry.apk"
     signer = tools / "apksigner"
     with tempfile.TemporaryDirectory(prefix="s26-signing-", dir=runner_temp) as private:
         keystore = Path(private) / "development.p12"
@@ -58,7 +60,7 @@ def main():
         with output.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         (output_dir / "certificate.txt").write_text(
-            "ENGINEERING ONLY - MUTATIONS DISABLED\nCertificate SHA-256: " + pin +
+            "READ-ONLY TELEMETRY - MUTATIONS DISABLED\nApplication ID: " + PACKAGE + "\nCertificate SHA-256: " + pin +
             "\nCommit: " + os.environ.get("GITHUB_SHA", "unknown") + "\nAPK SHA-256: " + digest + "\n"
         )
 
