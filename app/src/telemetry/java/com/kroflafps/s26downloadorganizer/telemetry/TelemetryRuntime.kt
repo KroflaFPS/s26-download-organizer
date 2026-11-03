@@ -20,8 +20,10 @@ object TelemetryGate {
     @androidx.annotation.ChecksSdkIntAtLeast(api = 30)
     fun supported() = BuildConfig.TELEMETRY_ENABLED && BuildConfig.DEBUG && BuildConfig.APPLICATION_ID == ID && Build.VERSION.SDK_INT >= 30
     @androidx.annotation.ChecksSdkIntAtLeast(api = 30)
-    fun canRead() = Build.VERSION.SDK_INT >= 30 && StorageAccessAdapter().check() == StorageAccess.GRANTED &&
-        Environment.getExternalStorageState() in listOf(Environment.MEDIA_MOUNTED, Environment.MEDIA_MOUNTED_READ_ONLY)
+    fun canRead() = try {
+        Build.VERSION.SDK_INT >= 30 && StorageAccessAdapter().check() == StorageAccess.GRANTED &&
+            Environment.getExternalStorageState() in listOf(Environment.MEDIA_MOUNTED, Environment.MEDIA_MOUNTED_READ_ONLY)
+    } catch (_: RuntimeException) { false } // The platform can expose no primary volume during unavailability.
 }
 class TelemetryApplication : OrganizerApplication() {
     val telemetry by lazy { TelemetryGraph(this) }

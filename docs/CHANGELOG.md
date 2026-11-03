@@ -31,7 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update architecture and mandatory phone-only repeated-callback/root/nested/
   stop/revoke/reboot/export checks. **OWNER DEVICE ACCEPTANCE AND INDEPENDENT ADA
   RE-AUDIT PENDING.** JVM/Robolectric do not prove live Android/FUSE behavior.
-- Local repaired-head verification: 95 normal + 121 telemetry JVM executions,
+- Add a telemetry-only unavailable-primary-volume guard: platform access-check
+  exceptions deny reads/registration rather than escaping the service/UI path.
+  The original main storage adapter remains unchanged.
+- Local repaired-head verification: 95 normal + 122 telemetry JVM executions,
   zero failures/errors/skips; lint zero errors, 5 normal/8 telemetry advisory
   warnings. Fresh APK/signing/schema/CI evidence is recorded in the PR handoff.
 

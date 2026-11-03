@@ -56,7 +56,8 @@ and duplicate finalization cannot finish/cancel a newer token's run. Framework
 retry is requested only while enabled, readable and without an existing successor;
 superseded old callbacks do no scanning. Pause cancels only this component's native
 registrations plus its named WorkManager work. Permission denial prevents reads
-and new registration. Fresh job IDs do not inherit changed-URI data from old IDs;
+and new registration. A platform exception while checking primary-volume access
+also returns unavailable; no-volume states must not escape the telemetry guard. Fresh job IDs do not inherit changed-URI data from old IDs;
 changes before the successor registration can be missed and require reconciliation.
 
 Process death before schedule may leave only the interrupted job/framework retry;

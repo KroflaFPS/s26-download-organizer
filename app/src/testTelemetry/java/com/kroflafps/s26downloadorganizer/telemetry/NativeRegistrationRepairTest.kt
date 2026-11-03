@@ -66,6 +66,12 @@ class NativeRegistrationRepairTest {
             assertSame(first, jobs.getPendingJob(first.id))
         } finally { pool.shutdownNow() }
     }
+    @Test fun unavailablePrimaryVolumeDeniesReadsAndRegistrationWithoutCrashing() {
+        ShadowEnvironment.reset() // Disposable simulated volumes only, not device storage.
+        assertFalse(TelemetryGate.canRead())
+        assertFalse(graph.scheduling.register())
+        assertTrue(jobs.allPendingJobs.isEmpty())
+    }
     @Test fun interruptedReservationIsSkippedAndLegacyIdIsNotReplaced() {
         val legacy = TelemetryScheduling.trigger(context, 4001)
         jobs.schedule(legacy)
