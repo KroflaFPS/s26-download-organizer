@@ -1,5 +1,10 @@
 # Build 4 S26 Ultra acceptance — phone only, read-only
 
+**OWNER DEVICE ACCEPTANCE AND INDEPENDENT ADA RE-AUDIT PENDING.** Do not install
+or treat this repair as accepted until the owner/reviewer has reviewed the repair
+head and artifact. The prior same-ID rearm implementation was defective; use only
+the newly reviewed repair artifact. No installation is performed by Codex.
+
 These checks gather evidence. CI/Robolectric do not establish Samsung trigger
 coverage, FUSE behavior, battery-policy timing or reboot/power-loss durability.
 No PC, ADB, root, signing password or uninstall is required. Keep existing Build
@@ -55,6 +60,45 @@ Uninstall/Clear data erases that app's private journal and telemetry.
 6. Revoke All Files Access in Settings during observation, return and run a scan.
    Inventory clears; telemetry reports unavailable access, no false new successful
    page, and checkpoint work remains deferred. Regrant to test recovery.
+
+## Mandatory B4-01/B4-03/B4-04 rearm and scanner experiments
+
+After review authorizes phone testing, record these as separate PASS/FAIL/
+NOT OBSERVED/UNCONFIRMED results. Retain redacted reports and action UTC notes.
+No pending-job snapshot alone proves delivery, and these tests cannot be replaced
+by CI callback ordering or Robolectric results.
+
+1. Root/nested access: deliberately place disposable fixtures at Downloads root
+   and in an existing subfolder, including a Unicode/space name. Run metadata
+   pages; require real page progress and truthful coverage. Exact /proc readlink,
+   no-follow and FUSE behavior are unverified until this works on the S26.
+   Any failure must show unavailable/limited coverage, never invented success.
+2. Consecutive content callbacks: after enabling, perform one harmless Chrome
+   download, wait for a CONTENT wake and export; perform another separate download,
+   then a third (also try Samsung Internet/My Files). Record distinct wake UTCs
+   and successive CONTENT signal/page events. Allow OS delays; do not trigger all
+   changes together and call coalescing proof of rearm. Repeatedly test while UI
+   closed/task dismissed and while locked. Native IDs are deliberately not reused;
+   this experiment still must establish actual successor delivery on Samsung.
+3. Stop versus finish: during a content scan, try Pause, then permission revocation
+   in separate trials. Inspect STOPPED/error/page events and verify observation
+   remains off or reads unavailable, with no unsolicited re-enable/rearm or file
+   changes. A short page may finish before the action; if no interruption was
+   observed, record NOT OBSERVED rather than claiming stop-race acceptance.
+   Regrant/resume explicitly and repeat multiple content changes.
+4. Restart boundaries: repeat root/nested/repeated changes after normal reboot
+   and, only if a matching certificate update is available, package update.
+   Process death cannot be proven by task dismissal alone; label it UNCONFIRMED
+   without independent evidence. Force-stop must prevent work until manual launch.
+5. Error privacy: inspect clipboard AND sharesheet previews after denial and a
+   limited/unreadable page as well as success. No private path/name/full URI/error
+   details may leak. Rough mtime age is never completion-to-wake latency.
+
+B4-02 is a known delayed-drain window: KEEP can drop a follow-up enqueue while a
+worker is finishing, though the dirty generation stays durable. Later manual/
+content/periodic work reconciles it; the ~2h periodic interval plus OS deferral is
+not a maximum latency. Do not interpret missing immediate scans as completed
+coverage. Traversal caps can also leave omissions indefinitely; retain warnings.
 
 ## Controlled disposable observations
 

@@ -11,6 +11,12 @@ copy, collision, original-preservation, recovery and permission checks succeeded
 these are owner reports, not independent durability/Android certification.
 This branch does not contain its copy implementation or schema 3.
 
+**Audit repair status: OWNER DEVICE ACCEPTANCE AND INDEPENDENT ADA RE-AUDIT PENDING.**
+The original same-ID rearm was defective. The targeted repair reserves fresh
+native job IDs; live S26 repeated-callback/stop behavior is still unverified.
+WorkManager KEEP's late-finishing-worker window is reproduced and retained:
+durable requests can wait until later signal/manual/inexact periodic work.
+
 ## Build 4 implementation
 
 - Original flat Downloads inventory, All Files Access setup/revocation, Material 3

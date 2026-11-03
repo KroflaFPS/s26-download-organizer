@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ARCHITECTURE.md` specifying modules, Android permissions, and team roles.
 - `ROADMAP.md` tracking planned milestones.
 
+### Build 4 targeted Ada audit repairs (2026-11-03)
+
+- Repair B4-01 on the existing draft PR #6, starting at `0629888`; no branch
+  switch/reset/rebase, PR #4 modification, signing setup or feature build.
+- Withdraw the unsafe same-ID-before-jobFinished rearm claim. Reserve fresh
+  native IDs durably before scheduling, outside WorkManager's range, and avoid
+  replacing any still-running/unacknowledged ID. Preserve legacy registrations,
+  component-scoped pause, stale callback handling and fail-closed allocation.
+- Correct stop-during-rearm and duplicate-finish state transitions. Two new
+  lifecycle regressions failed against the audit baseline before repair.
+- Reproduce B4-02 with WorkManager 2.12 KEEP, a held RUNNING worker future and the
+  real telemetry DAO/coordinator. Retain KEEP and document the delayed-drain
+  limitation: dirty state survives, but may wait for later signal/manual/inexact
+  ~2h periodic work plus OS deferral; no maximum latency is promised.
+- Add registration/reservation/concurrency/permission regression coverage,
+  queue-saturation coverage and scanner-error redaction assertions. No scanner,
+  schema, manifest, dependency, feature-gate or credential changes.
+- Update architecture and mandatory phone-only repeated-callback/root/nested/
+  stop/revoke/reboot/export checks. **OWNER DEVICE ACCEPTANCE AND INDEPENDENT ADA
+  RE-AUDIT PENDING.** JVM/Robolectric do not prove live Android/FUSE behavior.
+- Local repaired-head verification: 95 normal + 121 telemetry JVM executions,
+  zero failures/errors/skips; lint zero errors, 5 normal/8 telemetry advisory
+  warnings. Fresh APK/signing/schema/CI evidence is recorded in the PR handoff.
+
 ### Build 4 — Read-only Ghost Bot/readiness telemetry (2026-11-03)
 
 - Carry forward the uncommitted Build 4 work on `feat/build-4-readonly-telemetry`,

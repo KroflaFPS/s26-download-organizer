@@ -63,7 +63,8 @@ class TelemetryGraph(private val context: Context) {
 }
 class TelemetryScheduling(private val context: Context, private val graph: TelemetryGraph) {
     companion object {
-        const val JOB_ID = 4001
+        const val FIRST_JOB_ID = 20_000 // Disjoint from WorkManager's 10000–19999 range.
+        private val registrationLock = Any() // All app components use the default, single process.
         const val PERIODIC = "s26-readonly-two-hour-reconciliation"
         const val DRAIN = "s26-readonly-checkpoint-drain"
         const val HOURS = 2L
@@ -71,23 +72,37 @@ class TelemetryScheduling(private val context: Context, private val graph: Telem
             .setInputData(workDataOf("source" to "PERIODIC")).setInitialDelay(HOURS, TimeUnit.HOURS).build()
         fun drainRequest() = OneTimeWorkRequestBuilder<TelemetryWorker>().setInputData(workDataOf("source" to "DEFERRED"))
             .setInitialDelay(15, TimeUnit.SECONDS).setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.SECONDS).build()
-        @RequiresApi(30) fun trigger(context: Context) = JobInfo.Builder(JOB_ID, ComponentName(context, TelemetryJobService::class.java))
+        @RequiresApi(30) fun trigger(context: Context, id: Int) = JobInfo.Builder(id, ComponentName(context, TelemetryJobService::class.java))
             .addTriggerContentUri(JobInfo.TriggerContentUri(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS))
             .addTriggerContentUri(JobInfo.TriggerContentUri(android.provider.MediaStore.Files.getContentUri("external"), JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS))
             .setExtras(PersistableBundle().apply { putString("registration", UUID.randomUUID().toString()) })
             .setTriggerContentUpdateDelay(2_000).setTriggerContentMaxDelay(15_000).build()
     }
     private val jobs get() = context.getSystemService(JobScheduler::class.java)
-    fun registered(): Boolean = try { jobs.getPendingJob(JOB_ID) != null } catch (_: Exception) { false } // Public snapshot only, not delivery assurance.
-    fun register(force: Boolean = false): Boolean {
+    private fun nativeJobs() = jobs.allPendingJobs.filter { it.service == ComponentName(context, TelemetryJobService::class.java) }
+    fun registered(): Boolean = try { nativeJobs().isNotEmpty() } catch (_: Exception) { false } // Snapshot only, not delivery assurance.
+    fun hasSuccessor(id: Int): Boolean = try { nativeJobs().any { it.id > id } } catch (_: Exception) { false }
+    fun register(completingJobId: Int? = null): Boolean = synchronized(registrationLock) {
         if (Build.VERSION.SDK_INT < 30 || !graph.enabled || !TelemetryGate.canRead()) return false
-        if (!force && (TelemetryJobService.running || registered())) return true
-        return try { jobs.schedule(trigger(context)) == JobScheduler.RESULT_SUCCESS } catch (_: Exception) { false }
+        try {
+            val existing = nativeJobs()
+            if (existing.any { completingJobId == null || it.id > completingJobId }) return true
+            val preferences = context.getSharedPreferences("read-only-observation", Context.MODE_PRIVATE)
+            // Persist reservation BEFORE schedule. Process death skips an ID rather than reusing a live one.
+            // Also advance beyond the current callback and every still-pending/running native registration.
+            val next = maxOf(preferences.getLong("nextNativeJobId", FIRST_JOB_ID.toLong()),
+                FIRST_JOB_ID.toLong(), (existing.maxOfOrNull { it.id } ?: 0).toLong() + 1,
+                (completingJobId ?: 0).toLong() + 1)
+            if (next > Int.MAX_VALUE || !preferences.edit().putLong("nextNativeJobId", next + 1).commit()) return false
+            jobs.schedule(trigger(context, next.toInt())) == JobScheduler.RESULT_SUCCESS
+        } catch (_: Exception) { false } // No fixed-ID fallback or wraparound on reservation/scheduler failure.
     }
     fun periodic() { if (graph.enabled) WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP, periodicRequest()) }
+    // KEEP can ignore a request while the old drain is finishing (B4-02). Dirty state survives;
+    // manual/later signals or inexact periodic work reconcile it. No timely handoff is promised.
     fun drain() { if (graph.enabled) WorkManager.getInstance(context).enqueueUniqueWork(DRAIN, ExistingWorkPolicy.KEEP, drainRequest()) }
     fun cancel() {
-        jobs.cancel(JOB_ID)
+        synchronized(registrationLock) { nativeJobs().forEach { jobs.cancel(it.id) } }
         if (TelemetryGate.supported()) {
             WorkManager.getInstance(context).cancelUniqueWork(PERIODIC)
             WorkManager.getInstance(context).cancelUniqueWork(DRAIN)
@@ -95,24 +110,32 @@ class TelemetryScheduling(private val context: Context, private val graph: Telem
     }
 }
 
-/** Main-thread lifecycle flag prevents replacement callbacks cancelling already-completed work. */
+/** Main-thread state; jobFinished is a message, not acknowledgement that the ID is reusable. */
 class TriggerLifecycle {
-    var finishing = false; private set
-    var stopped = false; private set
-    fun stop(cancel: () -> Unit): Boolean { if (finishing) return false; stopped = true; cancel(); return true }
-    fun finish(rearm: () -> Unit, complete: () -> Unit) { if (!stopped) { finishing = true; try { rearm() } finally { complete() } } }
+    private enum class Phase { RUNNING, REARMING, FINISH_SENT, STOPPED }
+    private var phase = Phase.RUNNING
+    fun stop(cancel: () -> Unit): Boolean {
+        if (phase == Phase.STOPPED || phase == Phase.FINISH_SENT) return false
+        phase = Phase.STOPPED; cancel(); return true
+    }
+    fun finish(rearm: () -> Unit, complete: () -> Unit) {
+        if (phase != Phase.RUNNING) return
+        phase = Phase.REARMING
+        try { rearm() } finally {
+            if (phase != Phase.STOPPED) { phase = Phase.FINISH_SENT; complete() }
+        }
+    }
 }
 class TelemetryJobService : JobService() {
-    companion object { @Volatile var running = false; private set }
     private data class Active(val lifecycle: TriggerLifecycle, var job: Job? = null)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val active = mutableMapOf<String, Active>()
     override fun onStartJob(params: JobParameters): Boolean {
         val graph = (application as TelemetryApplication).telemetry
-        if (!graph.enabled || !TelemetryGate.supported()) return false
+        if (!graph.enabled || !TelemetryGate.supported() || graph.scheduling.hasSuccessor(params.jobId)) return false
         val wake = System.currentTimeMillis()
         val token = params.extras.getString("registration") ?: return false
-        val current = Active(TriggerLifecycle()); active[token] = current; running = true
+        val current = Active(TriggerLifecycle()); active[token] = current
         current.job = scope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -123,20 +146,23 @@ class TelemetryJobService : JobService() {
             } catch (cancelled: CancellationException) { throw cancelled
             } catch (_: Exception) { /* A pending generation/periodic work can reconcile; no exception paths enter exports. */
             } finally {
-                current.lifecycle.finish({ graph.scheduling.register(force = true) }, { jobFinished(params, false) })
-                active.remove(token); running = active.values.any { !it.lifecycle.finishing && !it.lifecycle.stopped }
+                try {
+                    // A FRESH ID cannot replace this job even while its asynchronous finish is pending.
+                    current.lifecycle.finish({ graph.scheduling.register(completingJobId = params.jobId) }, { jobFinished(params, false) })
+                } finally { active.remove(token) }
             }
         }
         return true
     }
     override fun onStopJob(params: JobParameters): Boolean {
-        val token = params.extras.getString("registration") ?: return true
+        val token = params.extras.getString("registration") ?: return false
         val current = active[token] ?: return false // A late replacement callback cannot cancel a newer registration.
-        return current.lifecycle.stop {
-            current.job?.cancel(); running = false
-            val graph = (application as TelemetryApplication).telemetry
+        val graph = (application as TelemetryApplication).telemetry
+        val stopped = current.lifecycle.stop {
+            current.job?.cancel()
             CoroutineScope(Dispatchers.IO).launch { try { graph.dao.log(TelemetryEvent(at = System.currentTimeMillis(), source = "CONTENT", code = "STOPPED")) } catch (_: Exception) { } }
         }
+        return stopped && graph.enabled && TelemetryGate.canRead() && !graph.scheduling.hasSuccessor(params.jobId)
     }
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 }

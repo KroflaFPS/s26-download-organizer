@@ -26,23 +26,59 @@ provider visibility, coalescing, quotas, Doze and Samsung policy can miss/delay
 notifications. We watch Downloads and Files external URIs with descendant flags;
 Files also produces camera/screenshot false positives.
 
-The native one-shot JobInfo uses ID 4001, update-delay hint 2 seconds and max-delay
-hint 15 seconds. These are batching hints, **not a delivery SLA**. Content-trigger
-jobs cannot be periodic or persisted. The application does not schedule a job in
-Application.onCreate: a content job may itself be cold-starting the process.
-After one bounded page, JobService marks its run finishing, registers the next
-same-ID content job, then calls jobFinished. It does not replace its active job
-at onStartJob. Registration tokens prevent a late stop for the old registration
-from cancelling its replacement. onStopJob cancels work and asks for framework
-retry; interrupted work retains durable checkpoints. Null/coalesced URI arrays
-are treated as unknown hints, not as no changes. A public pending-job snapshot
-only reports registration, never delivery assurance.
+**Audit status: OWNER DEVICE ACCEPTANCE AND INDEPENDENT ADA RE-AUDIT PENDING.**
+B4-01 identified a real defect in the original `0629888` implementation: scheduling
+4001 before its jobFinished could stop that same running job. That approach and
+its callback-only justification are withdrawn.
+
+Native one-shot jobs now reserve **fresh increasing IDs starting at 20000**;
+WorkManager retains 10000–19999. A process-wide lock serializes registration in
+this single-process app. The next-ID reservation is committed to private preferences
+before schedule(), above both the completing callback's ID and all registered
+native IDs. A restart skips a reserved-but-unscheduled ID. Failed persistence,
+failed registration or integer exhaustion fails registration without fixed-ID
+fallback/wraparound. Normal registration preserves any existing native job;
+completion schedules only if no higher-ID successor exists. Discovery/cancellation
+is by the exact JobService component, including legacy 4001, not by every app job.
+
+After bounded work, the service registers a distinct-ID successor, then sends
+jobFinished for the old instance. Android explicitly stops a running job when
+schedule() replaces its ID; **the successor never uses that ID**. Calling
+jobFinished then immediately reusing an ID is not used either: AOSP JobServiceEngine
+posts MSG_JOB_FINISHED, so the call is not a synchronous acknowledgement. This
+strategy does not depend on predicting when that acknowledgement is processed.
+Update/max-delay hints remain 2/15 seconds, not a delivery SLA. Content-trigger
+jobs are neither periodic nor persisted. Application.onCreate does not register
+native work because a job may itself be cold-starting the process.
+
+Stop during work/rearming cancels that run and suppresses jobFinished. Late stops
+and duplicate finalization cannot finish/cancel a newer token's run. Framework
+retry is requested only while enabled, readable and without an existing successor;
+superseded old callbacks do no scanning. Pause cancels only this component's native
+registrations plus its named WorkManager work. Permission denial prevents reads
+and new registration. Fresh job IDs do not inherit changed-URI data from old IDs;
+changes before the successor registration can be missed and require reconciliation.
+
+Process death before schedule may leave only the interrupted job/framework retry;
+death after schedule leaves the already registered successor. Durable metadata
+checkpoints and periodic/manual reconciliation are the fallback, not a delayed
+in-process callback. Reboot/package restoration reserves a fresh ID after consent;
+force-stop still requires manual launch. Scheduling cost, quotas, OEM behavior and
+provider coverage can delay/fail registration or delivery. No immediate-delivery
+or universal crash-recovery guarantee is claimed.
+
+Robolectric tests exercise the actual registration adapter's registry/IDs, skipped
+reservations, legacy registrations, stale counters/callbacks, consent and revocation.
+Lifecycle regressions fail on the old implementation. They do **not** simulate a
+live Android stop/finish acknowledgement pipeline. Multiple real consecutive
+content callbacks and interrupt/rearm cases are mandatory S26 acceptance gates
+(B4-03/B4-04); a pending-job snapshot alone is insufficient.
 
 A unique KEEP PeriodicWorkRequest runs approximately every two hours, with its
 first request delayed two hours. WorkManager 2.12.0 is stable, min API 24, fitting
 this project's min API 26; other dependency/toolchain versions are retained.
 It initializes only in the supported telemetry variant and reserves job IDs
-10000–19999, separate from native 4001. A unique non-expedited delayed worker
+10000–19999, separate from the native fresh-ID range. A unique non-expedited delayed worker
 continues pending pages/samples. It retries at most seven times after its first
 attempt with linear 30-second backoff. OS timing may be much later. Remaining
 work is durable for the next manual, external or periodic request. There is no
@@ -50,6 +86,17 @@ permanent polling loop, foreground service or notification. Boot/package-update
 receivers request reconciliation and restore registration only after prior user
 consent. Delivery under restricted policy is not guaranteed. Force-stop prevents
 execution until manual launch. No exemption intent or notification permission.
+
+**B4-02 retained limitation, reproduced with WorkManager 2.12.0:** when a RUNNING
+unique drain has already computed more=false, a new dirty request plus KEEP is
+ignored before the old worker reports success. The dirty generation survives but
+no new drain is queued. It may wait for another signal/manual scan or the next
+approximately two-hour periodic request **plus OS deferral**. There is no hard
+upper latency bound, especially under Doze/restrictions/force-stop. The regression
+holds an actual WorkManager worker future, verifies RUNNING, injects the DAO request,
+then verifies no successor and successful later reconciliation. KEEP is unchanged;
+no unbounded APPEND chain, replace/cancel churn or polling loop was introduced.
+
 
 ## Bounded scanning and durable coordination
 
@@ -171,6 +218,9 @@ cherry-pick telemetry flags into a production mutation build.
 
 - [Android background optimization: content URI triggers and rescheduling](https://developer.android.com/topic/performance/background-optimization#content-trigger)
 - [JobInfo.TriggerContentUri](https://developer.android.com/reference/android/app/job/JobInfo.TriggerContentUri)
+- [JobScheduler.schedule](https://developer.android.com/reference/android/app/job/JobScheduler#schedule(android.app.job.JobInfo)): replacing a running same-ID job stops it.
+- [AOSP JobServiceEngine](https://github.com/aosp-mirror/platform_frameworks_base/blob/master/apex/jobscheduler/framework/java/android/app/job/JobServiceEngine.java): jobFinished enqueues a message; not a completion acknowledgement.
+- [ExistingWorkPolicy.KEEP](https://developer.android.com/reference/androidx/work/ExistingWorkPolicy#KEEP): unfinished unique work causes the new request to be ignored.
 - [JobService lifecycle](https://developer.android.com/reference/android/app/job/JobService)
 - [AOSP ContentObserverController (official mirror)](https://github.com/aosp-mirror/platform_frameworks_base/blob/master/apex/jobscheduler/service/java/com/android/server/job/controllers/ContentObserverController.java): changed URI/authority transfer during replacement/failure; not an OEM coverage guarantee.
 - [WorkManager releases](https://developer.android.com/jetpack/androidx/releases/work): stable 2.12.0, minimum API 24.

@@ -37,18 +37,19 @@ class TelemetryTests {
         val context = RuntimeEnvironment.getApplication()
         assertEquals("COALESCED_OR_UNKNOWN_URI_HINT", AndroidMetadataPages(context, "fixture-salt").hint(null))
         assertEquals("COALESCED_OR_UNKNOWN_URI_HINT", AndroidMetadataPages(context, "fixture-salt").hint(emptyArray()))
-        val job = TelemetryScheduling.trigger(context)
+        val job = TelemetryScheduling.trigger(context, TelemetryScheduling.FIRST_JOB_ID)
         assertFalse(job.isPeriodic); assertFalse(job.isPersisted)
         assertEquals(2, job.triggerContentUris!!.size)
         assertEquals(setOf("content://media/external/downloads", "content://media/external/file"), job.triggerContentUris!!.map { it.uri.toString() }.toSet())
         job.triggerContentUris!!.forEach { assertEquals(android.app.job.JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS, it.flags) }
         assertEquals(2000L, job.triggerContentUpdateDelay); assertEquals(15_000L, job.triggerContentMaxDelay)
-        assertNotEquals(job.extras.getString("registration"), TelemetryScheduling.trigger(context).extras.getString("registration"))
+        assertNotEquals(job.extras.getString("registration"), TelemetryScheduling.trigger(context, job.id + 1).extras.getString("registration"))
     }
-    @Test fun replacementRearmsOnlyAfterWorkAndBeforeFinishWithoutCancellingFinishedRun() {
+    @Test fun freshRegistrationPrecedesFinishButLateStopCannotCancelFinishedRun() {
         val state = TriggerLifecycle(); val calls = mutableListOf<String>()
         calls.add("work")
-        state.finish({ calls.add("rearm"); assertFalse(state.stop { calls.add("cancel") }) }, { calls.add("jobFinished") })
+        state.finish({ calls.add("rearm") }, { calls.add("jobFinished") })
+        assertFalse(state.stop { calls.add("cancel") })
         assertEquals(listOf("work", "rearm", "jobFinished"), calls)
     }
     @Test fun stoppedJobCancelsAndRequestsFrameworkRetryWithoutEarlyRearming() {
@@ -135,6 +136,21 @@ class TelemetryTests {
         assertTrue(coordinator.run("DEFERRED", signal = false)); assertEquals("b", db.telemetry().nextDirectory()?.relative)
         assertFalse(coordinator.run("DEFERRED", signal = false))
         assertEquals("LIMITED_OR_UNREADABLE", db.telemetry().state()?.coverage); assertEquals(1, db.telemetry().observations().size)
+        val exported = TelemetryExport.render(db.telemetry().state(), db.telemetry().events(), emptyMap(), 0, true, true, true, "", 30)
+        assertTrue(exported.contains("METADATA_PAGE_UNREADABLE"))
+        assertFalse(exported.contains("private path"))
+        db.close()
+    }
+    @Test fun queueSaturationRemainsBoundedAndFinishesWithLimitedCoverage() = runBlocking {
+        val db = database(); val dao = db.telemetry()
+        val children = List(130) { DirectoryTask("synthetic-$it", 1) }
+        assertTrue(engine(dao, scanner(MetadataPage(emptyList(), children, null, 0))).run("MANUAL"))
+        assertEquals(128, dao.directoryCount()); assertEquals(2, dao.state()?.warnings)
+        val continuation = engine(dao, scanner(MetadataPage(emptyList(), emptyList(), null, 0)))
+        repeat(128) { continuation.run("DEFERRED", signal = false) }
+        assertEquals(0, dao.directoryCount())
+        assertEquals("LIMITED_OR_UNREADABLE", dao.state()?.coverage)
+        assertFalse(dao.pending())
         db.close()
     }
     @Test fun eventRetentionIsBoundedAndUnknownDatabaseUpgradeDoesNotEraseLogs() = runBlocking {
