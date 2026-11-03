@@ -11,6 +11,7 @@ import kotlinx.coroutines.sync.Mutex
 
 /** Separate capability: never authorizes MOVE/UNDO, never accepts a caller-supplied path. */
 object DiagnosticPolicy {
+    const val APPLICATION_ID = "com.kroflafps.s26downloadorganizer.diagnostic"
     const val INPUT = "Download/S26_Organizer_Test_Input"
     const val OUTPUT = "Organized/S26_Organizer_Test_Output"
     const val MAX_BYTES = 1024L * 1024

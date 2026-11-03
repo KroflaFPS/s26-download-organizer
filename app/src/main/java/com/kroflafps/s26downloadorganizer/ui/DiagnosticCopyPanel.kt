@@ -12,11 +12,11 @@ import com.kroflafps.s26downloadorganizer.operations.FileEvidence
 fun DiagnosticCopyPanel(state: DiagnosticState, inspect: () -> Unit, review: (FileEvidence) -> Unit, recover: () -> Unit) {
     Card(Modifier.widthIn(max = 600.dp).fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Disposable-file copy test", style = MaterialTheme.typography.titleLarge)
+            Text("Standalone diagnostic · separate journal", style = MaterialTheme.typography.titleLarge)
             Text("Maximum 1 MiB; only the two documented synthetic fixtures. MOVE and Undo remain disabled. Automatic organizing is inactive.")
             Text("Input: ${DiagnosticPolicy.INPUT}/\nOutput: ${DiagnosticPolicy.OUTPUT}/")
             Text("Create these exact folders in My Files first. This app does not create folders. Partial final files and stages are retained if interrupted; no cleanup or deletion is provided.")
-            Text("Audit this artifact and compare its certificate report before installing an upgrade. Do not uninstall or clear app data for a signature mismatch.")
+            Text("This is S26 Organizer Diagnostic, installed separately from Build 3.1. Grant storage access to this test app separately. Audit this artifact before testing; do not uninstall or clear Build 3.1 data. Future updates to this diagnostic app still require matching signatures.")
             if (state.busy) CircularProgressIndicator()
             state.message?.let { Text(it) }
             Button(onClick = inspect, enabled = !state.busy && !state.journalError) { Text("Inspect test fixtures") }

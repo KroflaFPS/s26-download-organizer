@@ -14,7 +14,9 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28], manifest = Config.NONE, application = Application::class)
 class DiagnosticPlatformGateTest {
     @Test fun legacyAndroidCannotOpenDiagnosticIoEvenWithDebugCapabilityCompiled() {
-        assertTrue(BuildConfig.DEBUG && BuildConfig.DIAGNOSTIC_COPY_ENABLED)
+        assertTrue(BuildConfig.DEBUG)
+        assertEquals(BuildConfig.BUILD_TYPE == "diagnostic", BuildConfig.DIAGNOSTIC_COPY_ENABLED)
+        assertEquals(BuildConfig.BUILD_TYPE == "diagnostic", BuildConfig.APPLICATION_ID == DiagnosticPolicy.APPLICATION_ID)
         assertFalse(OperationPolicy.MUTATIONS_ENABLED)
         assertFalse(AndroidDiagnosticCopies.allowed())
         assertFalse(AndroidDiagnosticCopies.permission())

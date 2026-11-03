@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">S26 Organizer Diagnostic</string>
+    <string name="build_identifier">Build 3.2 · Standalone diagnostic</string>
+    <string name="foundation_description">Standalone synthetic-file test app with its own private journal. Build 3.1 remains installed separately. MOVE and Undo are disabled; automatic organizing is inactive. Only the two documented synthetic fixtures can be copied.</string>
+    <string name="development_notice">Separate diagnostic application · No access to Build 3.1’s private journal</string>
+    <string name="permission_navigation">Tap Open Settings and allow access for S26 Organizer Diagnostic. If a list of apps opens, choose this test app, not S26 Download Organizer. Return here when finished; access will be checked again.</string>
+    <string name="settings_unavailable">Open your phone’s Settings → Special app access → All files access, and choose S26 Organizer Diagnostic. This permission is separate from Build 3.1. Return here to check access again.</string>
+</resources>

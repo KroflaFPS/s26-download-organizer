@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       stable_signing:
-        description: 'Produce a stable-signed engineering APK (MOVE/UNDO disabled; synthetic test copy only)'
+        description: 'Optional stable signing for standalone diagnostic (not required for first install)'
         type: boolean
         required: false
         default: false
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build:
-    name: Test and assemble debug APK
+    name: Test normal and standalone diagnostic apps
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -48,10 +48,10 @@ jobs:
         uses: gradle/actions/setup-gradle@4c125117fe7c5aed11272ec4213f602f012f89f2 # v5
 
       - name: Run JVM unit tests
-        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest testDiagnosticUnitTest
 
       - name: Check Android lint and compile debug APK
-        run: ./gradlew --no-daemon --stacktrace lintDebug assembleDebug
+        run: ./gradlew --no-daemon --stacktrace lintDebug lintDiagnostic assembleDebug assembleDiagnostic
 
       - name: Verify protected signing script with disposable test credentials
         run: python3 -m unittest discover -s tools -p "test_*.py"
@@ -59,9 +59,9 @@ jobs:
       - name: Verify exported Room schema is versioned
         run: python3 tools/check_room_schema.py
 
-      - name: Report public APK certificate and generate disposable synthetic fixtures
+      - name: Report standalone APK identity/certificate and generate disposable synthetic fixtures
         run: |
-          python3 tools/report_apk.py app/build/outputs/apk/debug/app-debug.apk --output app/build/outputs/apk/debug/certificate.txt
+          python3 tools/report_apk.py app/build/outputs/apk/diagnostic/app-diagnostic.apk --expect-package com.kroflafps.s26downloadorganizer.diagnostic --output app/build/outputs/apk/diagnostic/certificate.txt
           python3 tools/create_test_fixtures.py "$RUNNER_TEMP/s26-synthetic-fixtures"
 
       - name: Upload synthetic test fixtures (no user data)
@@ -72,13 +72,13 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload debug APK
+      - name: Upload standalone diagnostic APK only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: s26-download-organizer-build-3-2-synthetic-copy-debug
+          name: s26-build-3-2-standalone-diagnostic
           path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/debug/certificate.txt
+            app/build/outputs/apk/diagnostic/app-diagnostic.apk
+            app/build/outputs/apk/diagnostic/certificate.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -89,8 +89,11 @@ jobs:
           name: build-3-2-verification-reports
           path: |
             app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/tests/testDiagnosticUnitTest/
             app/build/test-results/testDebugUnitTest/
+            app/build/test-results/testDiagnosticUnitTest/
             app/build/reports/lint-results-debug.*
+            app/build/reports/lint-results-diagnostic.*
             app/schemas/
           if-no-files-found: warn
           retention-days: 14
@@ -116,10 +119,10 @@ jobs:
           cmdline-tools-version: '16111833'
           packages: 'build-tools;37.0.0'
           log-accepted-android-sdk-licenses: false
-      - name: Download this run's engineering APK
+      - name: Download this run's standalone diagnostic APK
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
-          name: s26-download-organizer-build-3-2-synthetic-copy-debug
+          name: s26-build-3-2-standalone-diagnostic
           path: unsigned-input
       - name: Sign and verify pinned certificate
         env:
@@ -132,7 +135,7 @@ jobs:
       - name: Upload stable-signed engineering APK and public certificate report
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: s26-download-organizer-build-3-2-stable-signed-diagnostic
+          name: s26-build-3-2-stable-signed-standalone-diagnostic
           path: ${{ runner.temp }}/s26-signed-output/
           if-no-files-found: error
           retention-days: 14

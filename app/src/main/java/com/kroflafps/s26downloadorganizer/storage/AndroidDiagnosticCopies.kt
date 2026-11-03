@@ -15,7 +15,8 @@ import java.nio.file.Paths
 
 /** Diagnostic-only public API implementation. Never linked to the MOVE/UNDO adapter. */
 object AndroidDiagnosticCopies {
-    fun allowed(): Boolean = BuildConfig.DEBUG && BuildConfig.DIAGNOSTIC_COPY_ENABLED && Build.VERSION.SDK_INT >= 30
+    fun allowed(): Boolean = BuildConfig.DEBUG && BuildConfig.DIAGNOSTIC_COPY_ENABLED &&
+        BuildConfig.APPLICATION_ID == DiagnosticPolicy.APPLICATION_ID && Build.VERSION.SDK_INT >= 30
     fun permission(): Boolean = Build.VERSION.SDK_INT >= 30 && StorageAccessAdapter().check() == StorageAccess.GRANTED &&
         Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED
     @Suppress("DEPRECATION")

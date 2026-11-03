@@ -24,7 +24,7 @@ One `:app` module; application ID `com.kroflafps.s26downloadorganizer`.
 AGP 9.5.0, Gradle 9.8.2, JDK 21, built-in Kotlin/Compose compiler 2.2.10,
 Compose BOM 2026.09.00, Material 3, AndroidX Core 1.19.1, Activity 1.13.0,
 Lifecycle 2.11.0, coroutines 1.10.2, compile/target API 37, minimum API 26 and
-JUnit 4.13.2 are retained. Version code/name: 5/0.3.2.
+JUnit 4.13.2 are retained. Version code/name: 6/0.3.2-diagnostic for the standalone diagnostic; normal versionName remains 0.3.2.
 
 Room 2.8.5, Room Gradle plugin 2.8.5 and **KSP2 2.3.4** add journal generation and
 schema export without replacing AGP's Kotlin plugin. Official guidance checked
@@ -269,8 +269,9 @@ The `diagnostic` coordinator, bounded streaming/verification implementation and
 Room records are separate from MOVE/UNDO. `AndroidDiagnosticCopies` exposes no
 caller-supplied root/path; its public factory resolves primary storage itself.
 The existing read-only AndroidOperationFiles and mutation constant are unchanged.
-Debug-only BuildConfig plus platform/storage/permission checks gate the new
-capability independently; release disables it. No test-only filesystem backend
+A dedicated diagnostic build type, exact diagnostic application-ID check and
+platform/storage/permission checks gate the new capability independently. Normal
+debug and release disable it. No test-only filesystem backend
 is packaged. UI explicitly inspects two known fixture names, then shows exact
 paths and warnings before each user-confirmed copy; it never scans recursively.
 
@@ -290,3 +291,30 @@ feature. Nothing deletes any original/output, implements Undo cleanup, watches
 files or schedules work. Directory relocation/adversarial races and sudden-loss
 durability remain limitations requiring separate review; see the full device
 experiment document for the exact runtime checks and stop conditions.
+
+## Standalone diagnostic identity and signing-blocker repair
+
+The owner reported that Build 3.2's original same-package APK could not update
+Build 3.1 because their certificates differ. This repair keeps the production
+application ID unchanged and adds `.diagnostic` only to a dedicated diagnostic
+build type. The namespace/code package remains unchanged. The launcher/app title
+is S26 Organizer Diagnostic, and its Settings instructions identify that app.
+Normal debug and release use the original ID, disable synthetic-copy controls and
+cannot pass the Android diagnostic runtime gate. CI builds normal debug for
+regression/package checks and uploads only the standalone diagnostic APK.
+
+Each package has its own context/UID and app-private Room journal, with no shared
+UID, cross-app provider/export/import or private-data copying. Startup-provider
+authorities and AndroidX signature permissions derive from each application ID.
+Room schema/migrations stay unchanged; separate installation does not open or
+migrate installed Build 3.1's database. Storage settings use activity.packageName,
+so grant All Files Access to the diagnostic separately. Shared storage remains
+shared, with exactly the same synthetic-fixture and exclusive-allocation rules.
+
+The new APK need not match Build 3.1's certificate for first parallel installation.
+Later updates to the same diagnostic ID still require certificate continuity.
+No credentials are required for this experiment; no source deletion or generic
+mutation gate was enabled. The [signing investigation](SIGNING_STRATEGY.md)
+documents the future main-key plan and why a new key cannot replace the installed
+main key without a separately reviewed continuity/migration solution. Device
+coinstallation/private-journal isolation and copying still require owner testing.

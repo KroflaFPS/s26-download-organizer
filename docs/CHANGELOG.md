@@ -239,3 +239,41 @@ historical; the stricter Build 3.1 recovery rules supersede completion inference
   generic MOVE/UNDO false. No release APK or owner signing was performed.
 - No emulator/S26 copy, reboot/power-loss or installed upgrade test performed;
   platform capabilities and owner acceptance remain explicitly unverified.
+
+
+### Build 3.2 — Standalone diagnostic signing-blocker repair
+- Owner reported that the initially reviewed APK could not update Build 3.1:
+  certificate 64b12f…1e23 differed from the old Build 3.2 certificate eeac4c…b18f.
+- Added dedicated diagnostic build type with applicationIdSuffix .diagnostic,
+  launcher/title S26 Organizer Diagnostic, version code 6 / 0.3.2-diagnostic.
+  Normal debug/release preserve the main application ID and disable synthetic
+  copying. Runtime now also requires the exact separate diagnostic application ID.
+- App-private journal is isolated by Android package/context/UID; no shared UID,
+  private-data copy, database migration across apps, or main-install replacement.
+  Existing Room schemas and copy/recovery/filesystem protections are unchanged.
+- Added per-variant merged-manifest/authority/permission contracts, actual Android
+  package-URI/fallback intent tests, normal-build capability refusal and compiled
+  APK identity/signing tests. Both normal and diagnostic run the existing suite.
+- CI uploads only the clearly named standalone APK and public package/certificate
+  report. Protected signing refuses a normal main-package input; same-package
+  mismatch still fails while differing IDs are reported as separate installs.
+- Updated phone-only instructions: retain Build 3.1, install app-diagnostic.apk,
+  grant All Files Access to the diagnostic separately and verify two app histories.
+  No owner credentials are required. No key/password was introduced into source.
+- Documented permanent-signing options for future main builds and the unresolved
+  original-private-key requirement. No promise of recovering a key from its public
+  certificate, and no uninstall/Clear data workaround. Device acceptance pending.
+
+### Standalone repair local verification
+- 104 JVM tests passed for normal debug and 104 for diagnostic (208 executions),
+  zero failures/errors/skips. All existing tests retained, plus Android API 30
+  Settings URI/fallback and package-capability checks.
+- 13 Python tests passed, including compiled package/label/authority/permission
+  checks, separate-ID comparisons, same-ID mismatch refusal and protected-signing
+  rejection of a main-package APK before private-material creation.
+- Both variants passed Kotlin/Compose/KSP compilation, lint and APK assembly.
+  Each lint report has zero errors and five advisory warnings.
+- Schema guard, actionlint, signature verification, diagnostic 16 KiB alignment
+  and normal release package/disabled-flag generation passed. Room exports unchanged.
+- No owner credentials provisioned, installed app/data accessed or device
+  coinstallation/permission/copy test performed. Hardware acceptance remains pending.

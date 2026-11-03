@@ -19,7 +19,7 @@ android {
         applicationId = "com.kroflafps.s26downloadorganizer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 5
+        versionCode = 6
         versionName = "0.3.2"
     }
 
@@ -30,6 +30,14 @@ android {
 
     buildTypes {
         debug {
+            buildConfigField("boolean", "DIAGNOSTIC_COPY_ENABLED", "false")
+            manifestPlaceholders["diagnosticCopyEnabled"] = "false"
+        }
+        create("diagnostic") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".diagnostic"
+            versionNameSuffix = "-diagnostic"
+            matchingFallbacks += listOf("debug")
             buildConfigField("boolean", "DIAGNOSTIC_COPY_ENABLED", "true")
             manifestPlaceholders["diagnosticCopyEnabled"] = "true"
         }
@@ -71,12 +79,19 @@ dependencies {
     testImplementation(libs.robolectric)
 }
 
-androidComponents.onVariants(androidComponents.selector().withBuildType("debug")) { variant ->
+androidComponents.beforeVariants(androidComponents.selector().withBuildType("diagnostic")) { variant ->
+    variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
+}
+
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
     val mergedManifest = variant.artifacts.get(SingleArtifact.MERGED_MANIFEST)
+    val unitTestTask = "test${variant.name.replaceFirstChar { it.uppercaseChar() }}UnitTest"
     tasks.withType<Test>().configureEach {
-        inputs.file(mergedManifest).withPathSensitivity(PathSensitivity.RELATIVE)
-        doFirst {
-            systemProperty("s26.mergedManifest", mergedManifest.get().asFile.absolutePath)
+        if (name == unitTestTask) {
+            inputs.file(mergedManifest).withPathSensitivity(PathSensitivity.RELATIVE)
+            doFirst {
+                systemProperty("s26.mergedManifest", mergedManifest.get().asFile.absolutePath)
+            }
         }
     }
 }

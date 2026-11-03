@@ -74,12 +74,16 @@ Build 3.2 uses a new draft PR and adds only this controlled experiment:
 - [x] Synthetic fixture generator and public APK certificate comparison/report tooling.
 - [ ] Independent audit of the exact experimental source/artifact before device use.
 - [ ] Demonstrate anchored reads/O_EXCL/sync/permission/crash behavior on S26 Android 17.
-- [ ] Verify installed signature compatibility and actual journal-preserving upgrades.
+- [x] Resolve the same-package certificate blocker with a distinct standalone
+  diagnostic build/label, private sandbox and package-specific Settings/artifacts.
+- [ ] Owner verify side-by-side installation and unchanged Build 3.1 data/history.
+- [ ] Establish permanent main signing and verify actual same-package upgrades;
+  standalone installation does not solve old main-key continuity.
 - [ ] Owner acceptance of the diagnostic copy experiment; no production move approval.
 
 JVM success does not complete hardware crash/durability gates. The generic move,
 Undo/removal gate stays disabled; only two reproducible synthetic fixtures can be
-copied by the new experimental debug capability. Builds 4–7 remain untouched.
+copied by the new separately identified diagnostic capability. Builds 4–7 remain untouched.
 
 ## 4. File readiness verification
 

@@ -107,55 +107,71 @@ process death leaves intent for the next explicit recovery check.
 
 ## Artifact and signing matrix
 
-| Artifact | Generic MOVE/UNDO | Diagnostic copying | Signing |
-| --- | --- | --- | --- |
-| build-3-2-synthetic-copy-debug | Disabled | Explicit synthetic fixtures only; runtime preflight | Ephemeral debug |
-| Optional stable-signed-diagnostic | Disabled | Same narrow capability | Protected main/manual + pinned owner certificate |
-| Release configuration | Disabled | Disabled independently by DEBUG and capability flag | No release publication added |
-| JVM fixtures | Test model only | Private temporary directories | Not packaged |
+The original main-package Build 3.2 failed installation because its certificate
+differed from installed Build 3.1. The repaired artifact is a **separate app**;
+no main-app update, uninstall, data clearing or signing-password setup is needed.
+Initial review passed before this identity repair; the new diff/artifact still
+requires review, and installation/copy on S26 remain unverified.
 
-The debug APK ZIP includes `certificate.txt`. Ephemeral keys may differ from
-installed Build 3.1. **Do not uninstall or clear app data to bypass a mismatch.**
-Compare the new certificate fingerprint with the exact APK previously installed.
-If retained APKs are available in a trusted cloud workspace with JDK/Android
-build-tools, run:
+| Build | Application ID | Diagnostic copying | Owner artifact |
+| --- | --- | --- | --- |
+| normal debug/release | com.kroflafps.s26downloadorganizer | Disabled | Not published for this experiment |
+| diagnostic | com.kroflafps.s26downloadorganizer.diagnostic | Known synthetic fixtures only | s26-build-3-2-standalone-diagnostic |
+| Optional protected stable-signed diagnostic | Same diagnostic ID | Same narrow capability | Optional; no credentials required now |
+| JVM fixtures | Not an installed app | Private temporary directories | Never packaged |
+
+MOVE/UNDO stays disabled everywhere. The separate app is named **S26 Organizer
+Diagnostic**, version `0.3.2-diagnostic` / code 6. Its own context/UID protects its
+private journal from Build 3.1's journal, despite using the same database filename.
+No shared UID or journal export/import exists. Both apps see shared storage, but
+only the diagnostic has this tightly scoped synthetic-write capability. Grant
+All Files Access to the test app separately; Build 3.1's grant is not inherited.
+
+The artifact ZIP includes `app-diagnostic.apk` and `certificate.txt` with the exact
+application ID and launcher name. First installation alongside Build 3.1 does
+**not** require the main app's certificate to match. A later update to this same
+diagnostic ID still needs a matching certificate; ephemeral CI keys may differ.
+Do not uninstall or clear either app's data to work around an update failure.
+See the [blocker analysis/permanent-signing plan](SIGNING_STRATEGY.md).
+
+Optional comparison of retained APKs in a trusted workspace with Android tools:
 
 ```sh
-python3 tools/report_apk.py new.apk --previous previously-installed.apk --output comparison.txt
+python3 tools/report_apk.py app-diagnostic.apk --previous previously-installed.apk --output comparison.txt
 ```
 
-Mismatch returns failure and instructions to obtain a matching signed build.
-Matching certificate reports establish certificate compatibility for those APKs;
-they do not prove which APK is currently installed, installer acceptance or data
-retention. An actual device in-place upgrade remains an owner check. If the old
-key is unavailable, stop this device experiment and resolve signing continuity
-with the owner. No key creation/upload or bypass is part of Build 3.2. Existing
-protected signing setup remains documented in README; it cannot enable MOVE or
-delete. Its report explicitly labels the narrow diagnostic capability.
-
-Uninstall, Clear data and device loss erase the app-private journal; stable
-signatures cannot prevent that. Journal backups/device transfer remain excluded.
-Keep journals and ambiguous files intact. No remote backup or user content upload.
+Different package IDs are reported as side-by-side applications, not upgrades.
+Same-package certificate mismatches still return failure. Neither result proves
+which app is installed or that Samsung accepted it. Stable signing is optional
+for this experiment and creates no broader mutation capability. No owner keys or
+passwords were created, uploaded or requested. Journal backups remain excluded;
+uninstall/Clear data erases that app's private history while shared partial files
+can remain. Preserve all journals and ambiguous outputs.
 
 ## Phone-only owner checklist
 
 Only proceed after Ada/owner review of the source and exact artifact. Use
 synthetic files only and stop on any unsupported/failure message.
 
-1. Record the commit, Android/One UI version, installed build and journal state.
-   Verify certificate continuity as above **before upgrade**. A mismatch stops
-   testing. No device upgrade compatibility has yet been demonstrated by Codex.
-2. In GitHub Actions, select the successful Build 3.2 PR run. Download
-   `s26-download-organizer-build-3-2-synthetic-copy-debug` and
-   `s26-build-3-2-synthetic-fixtures`. Extract both ZIPs in Samsung My Files.
-   Review `certificate.txt`; install `app-debug.apk` only if continuity is resolved.
-   Review install-source permission/Auto Blocker if prompted.
+1. Record the new commit and Android/One UI version. Leave **S26 Download
+   Organizer / Build 3.1** installed with its data and journal intact. Do not use
+   the old main-package `app-debug.apk` from the earlier failed installation.
+2. Open the successful updated PR #4 Actions run. Download
+   `s26-build-3-2-standalone-diagnostic` and `s26-build-3-2-synthetic-fixtures`.
+   Extract in My Files. Confirm `certificate.txt` says application ID
+   `com.kroflafps.s26downloadorganizer.diagnostic` and **S26 Organizer Diagnostic**.
+   Tap **app-diagnostic.apk**. It should offer installation of a separate test
+   app, not an update to S26 Download Organizer. Stop if the identity differs.
+   Review install-source/Auto Blocker prompts if required. No signing password.
+   Confirm both launcher entries remain, the diagnostic banner is visible, its
+   history starts fresh, and opening Build 3.1 shows unchanged history/settings.
 3. In Internal storage → Download, deliberately create `S26_Organizer_Test_Input`.
    Wait for downloads/extraction to finish. Place only the two provided `.bin`
    fixtures there, preserving exact names.
    Deliberately create Internal storage → Organized → `S26_Organizer_Test_Output`.
    The app itself does not create these folders. Keep personal data out of both.
-4. Grant All Files Access through the existing explicit setup flow. Verify normal
+4. Grant All Files Access specifically to **S26 Organizer Diagnostic** through
+   its setup flow. Select the test app in Settings, not S26 Download Organizer. Verify normal
    top-level Downloads inventory remains unchanged. Tap **Inspect test fixtures**.
    This checks approved roots, /proc anchors, types/identity, directory fsync and
    known fixture hashes. Missing folders/unsupported behavior must refuse.
@@ -188,5 +204,6 @@ synthetic files only and stop on any unsupported/failure message.
 Capabilities still unverified until demonstrated on the S26: primary alias and
 /proc anchoring, stable identity/change metadata, O_EXCL collision behavior,
 file/directory fsync, permission revocation timing, process-death recovery,
+side-by-side installation/private-journal isolation and future same-package
 installer signature continuity and journal retention. No readiness, automation,
 routing, classification or Build 4 work is included.
