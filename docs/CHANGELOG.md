@@ -196,3 +196,46 @@ historical; the stricter Build 3.1 recovery rules supersede completion inference
   source/merged manifest contracts and absence of test-only adapters verified.
 - No owner signing credentials, emulator/device tests, hardware crash tests or
   real-file operational tests were used. All owner-facing APKs remain disabled.
+
+
+### Build 3.2 — Controlled synthetic-copy prototype (device acceptance pending)
+- Verified main 08dddedf9241b403de738787e5c6ec5297429e30 (Build 3.1 PR #3 merged)
+  and created a new feature branch; no modification/reopening of PR #3.
+- Version 5/0.3.2, unchanged Android toolchain, permissions and legacy operation gates.
+- Added an independent debug-only diagnostic copy coordinator/Android adapter,
+  restricted to two known synthetic fixture names/sizes/hashes in the exact test
+  input folder and a dedicated test output folder. Maximum 1 MiB, no recursion,
+  arbitrary paths, directory creation, source writes, delete, move or Undo.
+- Public descriptor-based no-follow anchored I/O, exclusive stage/final allocation,
+  bounded streaming, SHA-256 and identity/change checks, file/directory sync.
+  Final publication is deliberately non-atomic, with tracked partial final names;
+  no replacing rename/hard-link assumption or unsafe fallback.
+- Added independent diagnostic records/events and cursor, exported schema 3 and
+  explicit migration 2→3 preserving legacy data and 1→2 recovery repair.
+- Explicit review/confirmation, copy-only result, progress, retained stages/partial
+  outputs, separate history and manual bounded evidence-only recovery. Interrupted
+  records are never silently promoted to success or cleaned up.
+- Added real disposable-file, concurrency/collision, failure/cancellation,
+  journal/acknowledgement loss, recovery and Room migration/reopen regressions.
+- Added deterministic fixture ZIP generation and public certificate reports for
+  phone-only test setup. Comparison of retained APK certificates stops on mismatch;
+  no advice to uninstall/clear data, no owner credentials created or uploaded.
+- Updated protected signing labels/preflight for the narrow capability, preserving
+  main/manual/environment/pinned-certificate restrictions and MOVE/UNDO disabled.
+- Device-specific /proc/FUSE/exclusive-create/sync behavior, installed signing
+  compatibility and hardware durability remain unverified. No Build 4 work added.
+
+### Build 3.2 local validation
+- 101 JVM tests passed with zero failures/errors/skips, including all 87 retained
+  tests, actual disposable I/O, collision concurrency, abrupt termination, native
+  SQLite migration/recreation and diagnostic transaction rollback.
+- Ten Python signing/tooling/packaging tests passed with disposable credentials;
+  actual APK certificate comparison detects mismatches without uninstall advice.
+- Kotlin/Compose/KSP, lintDebug and assembleDebug passed. Lint: zero errors,
+  five unchanged advisory policy/dependency warnings; no checks suppressed.
+- Schema 1/2 unchanged, schema 3 exported; versioned-schema guard, manifest
+  allowlist, actionlint, APK signature and 16 KiB ZIP alignment verified.
+- Generated release BuildConfig/manifest have diagnostic capability false and
+  generic MOVE/UNDO false. No release APK or owner signing was performed.
+- No emulator/S26 copy, reboot/power-loss or installed upgrade test performed;
+  platform capabilities and owner acceptance remain explicitly unverified.

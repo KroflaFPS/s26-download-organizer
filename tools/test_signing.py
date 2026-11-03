@@ -91,9 +91,26 @@ class SigningTests(unittest.TestCase):
         self.assertFalse(mutations_disabled_in_xmltree(disabled + disabled))
         self.assertFalse(mutations_disabled_in_xmltree(""))
 
+    def test_public_report_verifies_actual_apks_and_refuses_certificate_mismatch(self):
+        reporter = SCRIPT.with_name("report_apk.py")
+        with tempfile.TemporaryDirectory(prefix="s26-report-test-") as directory:
+            result = self.invoke(directory)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            apk = Path(directory) / "s26-signed-output/s26-build-3-2-stable-signed-diagnostic.apk"
+            report = Path(directory) / "comparison.txt"
+            same = subprocess.run(["python3", str(reporter), str(apk), "--previous", str(apk), "--output", str(report)], capture_output=True, text=True)
+            self.assertEqual(same.returncode, 0, same.stderr)
+            self.assertIn("MATCH:", report.read_text())
+            different = subprocess.run(["python3", str(reporter), str(apk), "--previous", str(APK), "--output", str(report)], capture_output=True, text=True)
+            self.assertNotEqual(different.returncode, 0)
+            self.assertIn("MISMATCH:", report.read_text())
+            self.assertIn("do not install, uninstall or clear data", report.read_text())
+
     def test_disposable_mutation_adapters_are_not_packaged(self):
         from zipfile import ZipFile
         with ZipFile(APK) as package:
             dex = b"".join(package.read(name) for name in package.namelist() if name.endswith(".dex"))
         self.assertNotIn(b"FixtureFiles", dex)
         self.assertNotIn(b"MemoryJournal", dex)
+        self.assertNotIn(b"FixtureDirectories", dex)
+        self.assertNotIn(b"MemoryDiagnosticJournal", dex)

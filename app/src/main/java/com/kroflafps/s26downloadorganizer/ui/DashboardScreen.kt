@@ -51,6 +51,12 @@ fun DashboardScreen(
     onRecovery: () -> Unit,
     onDismissOperation: () -> Unit,
     onConfirmOperation: (Boolean, Boolean) -> Unit,
+    diagnostic: DiagnosticState,
+    onInspectDiagnostic: () -> Unit,
+    onReviewDiagnostic: (com.kroflafps.s26downloadorganizer.operations.FileEvidence) -> Unit,
+    onRecoverDiagnostic: () -> Unit,
+    onDismissDiagnostic: () -> Unit,
+    onConfirmDiagnostic: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // One bounded lazy list handles both the header and rows, including large fonts.
@@ -137,6 +143,8 @@ fun DashboardScreen(
                     }
                 }
             }
+            item(key = "diagnostic") { DiagnosticCopyPanel(diagnostic, onInspectDiagnostic, onReviewDiagnostic, onRecoverDiagnostic) }
+            items(diagnostic.history, key = { "diagnostic-${it.id}" }) { DiagnosticHistoryRow(it) }
             item(key = "operations-header") { OperationsHeader(operations, onRecovery) }
             items(operations.history, key = { "operation-${it.record.id}" }) { item ->
                 OperationHistoryRow(item, operations.busy, onReviewUndo)
@@ -146,6 +154,7 @@ fun DashboardScreen(
             }
         }
     }
+    DiagnosticCopyDialog(diagnostic, onDismissDiagnostic, onConfirmDiagnostic)
     operations.confirmation?.let { OperationConfirmationDialog(it, operations.busy, onDismissOperation, onConfirmOperation) }
 }
 

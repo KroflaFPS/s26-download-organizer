@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- Personal sideloaded organizer. Build 3 engineering keeps Downloads read-only. -->
+    <!-- Personal sideloaded organizer. Generic MOVE/UNDO disabled; separate synthetic-fixture diagnostic capability only. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <application
         android:name=".OrganizerApplication"
@@ -13,6 +13,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.S26DownloadOrganizer">
         <meta-data android:name="com.kroflafps.s26downloadorganizer.MUTATIONS_ENABLED" android:value="false" />
+        <meta-data android:name="com.kroflafps.s26downloadorganizer.DIAGNOSTIC_COPY_ENABLED" android:value="${diagnosticCopyEnabled}" />
         <!-- Single process only; do not package Room's unused invalidation service. -->
         <service android:name="androidx.room.MultiInstanceInvalidationService" tools:node="remove" />
         <activity

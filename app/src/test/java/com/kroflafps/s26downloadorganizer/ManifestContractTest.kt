@@ -3,6 +3,7 @@ package com.kroflafps.s26downloadorganizer
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.w3c.dom.Document
 import org.w3c.dom.Element
@@ -60,7 +61,11 @@ class ManifestContractTest {
         assertEquals("signature", elements(merged, "permission").single().getAttributeNS(android, "protectionLevel"))
         assertEquals("$applicationId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION", names(merged, "permission").single())
         assertEquals(applicationId, merged.documentElement.getAttribute("package"))
-        assertEquals("4", merged.documentElement.getAttributeNS(android, "versionCode"))
+        assertEquals("5", merged.documentElement.getAttributeNS(android, "versionCode"))
+        val metadata = merged.getElementsByTagName("meta-data")
+        assertTrue((0 until metadata.length).map { metadata.item(it) as org.w3c.dom.Element }.any {
+            it.getAttributeNS(android, "name") == "com.kroflafps.s26downloadorganizer.DIAGNOSTIC_COPY_ENABLED" && it.getAttributeNS(android, "value") == "true"
+        })
         val gate = elements(merged, "meta-data").single { it.getAttributeNS(android, "name") == "$applicationId.MUTATIONS_ENABLED" }
         assertEquals("false", gate.getAttributeNS(android, "value"))
         checkLauncher(merged)

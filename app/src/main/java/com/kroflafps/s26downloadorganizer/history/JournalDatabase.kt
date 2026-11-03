@@ -89,9 +89,10 @@ abstract class JournalDao {
     }
 }
 
-@Database(entities = [JournalEntity::class, JournalEvent::class, RecoveryCursor::class], version = 2, exportSchema = true)
+@Database(entities = [JournalEntity::class, JournalEvent::class, RecoveryCursor::class, CopyEntity::class, CopyEvent::class], version = 3, exportSchema = true)
 abstract class JournalDatabase : RoomDatabase() {
     abstract fun journal(): JournalDao
+    abstract fun diagnostic(): DiagnosticDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -103,9 +104,17 @@ abstract class JournalDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS diagnostic_copies (operationId TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL, sourcePath TEXT NOT NULL, outputDirectory TEXT NOT NULL, sourceIdentity TEXT NOT NULL, sourceStamp TEXT NOT NULL, size INTEGER NOT NULL, hash TEXT NOT NULL, stagePath TEXT NOT NULL, finalPath TEXT, stageIdentity TEXT, finalIdentity TEXT, stageVerified INTEGER NOT NULL, finalVerified INTEGER NOT NULL, fileSynced INTEGER NOT NULL, directorySynced INTEGER NOT NULL, phase TEXT NOT NULL, error TEXT, revision INTEGER NOT NULL, startedAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, sourceClaim TEXT, PRIMARY KEY(operationId))")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_diagnostic_copies_sourceClaim ON diagnostic_copies(sourceClaim)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS diagnostic_events (operationId TEXT NOT NULL, revision INTEGER NOT NULL, phase TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(operationId, revision))")
+            }
+        }
+
         fun open(context: Context, name: String = "operation-journal.db"): JournalDatabase = Room.databaseBuilder(
             context.applicationContext, JournalDatabase::class.java, name,
-        ).addMigrations(MIGRATION_1_2).addCallback(object : Callback() {
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).addCallback(object : Callback() {
             override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // SQLite FULL requests stronger sync, but is not a power-loss guarantee.
                 db.execSQL("PRAGMA synchronous=FULL")

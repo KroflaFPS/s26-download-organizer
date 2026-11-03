@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">S26 Download Organizer</string>
-    <string name="build_identifier">Build 3.1 · Engineering</string>
+    <string name="build_identifier">Build 3.2 · Engineering</string>
     <string name="foundation_status">Foundation ready</string>
-    <string name="foundation_description">Automatic organizing is not active. Build 3.1 engineering: file changes are disabled by safety gates. Downloads inventory remains read-only.</string>
+    <string name="foundation_description">Automatic organizing is not active. Build 3.2 engineering: MOVE and Undo are disabled. Downloads inventory stays read-only. A separate synthetic-fixture copy test is available.</string>
     <string name="development_notice">Engineering build · Persistent history and recovery foundation</string>
     <string name="permission_title">Storage access required</string>
-    <string name="permission_explanation">All Files Access is intended for organizing downloaded files in later builds. Inventory reads only filenames, types, sizes and dates from Downloads. Recovery may read and hash journaled files locally within strict limits. It does not classify content, scan inside folders, or move, copy, rename or delete files.</string>
+    <string name="permission_explanation">All Files Access is intended for organizing downloaded files in later builds. Inventory reads only filenames, types, sizes and dates from Downloads. Recovery may read and hash journaled files locally within strict limits. The separate copy test only accepts two known synthetic fixtures in its exact test folder. No move, rename, delete, classification or automatic organizing is active.</string>
     <string name="permission_navigation">Tap Open Settings and allow access for S26 Download Organizer. If a list of apps opens, choose this app. Return here when finished; access will be checked again.</string>
     <string name="open_settings">Open Settings</string>
     <string name="settings_unavailable">Storage settings could not be opened. Open your phone’s Settings, find Special app access → All files access, and choose S26 Download Organizer. Return here to check access again.</string>
