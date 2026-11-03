@@ -1,4 +1,4 @@
-"""Trusted manual CI only. Re-sign a verified mutation-disabled engineering APK.
+"""Trusted manual CI only. Re-sign a verified synthetic-fixture diagnostic APK; MOVE/UNDO remain disabled.
 No passwords appear in command arguments or logs. Private material stays in runner temp.
 """
 import base64
@@ -9,14 +9,20 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+from apk_identity import identity, require_standalone_diagnostic, DIAGNOSTIC_ID
 
+COPY_MARKER = "com.kroflafps.s26downloadorganizer.DIAGNOSTIC_COPY_ENABLED"
 MARKER = "com.kroflafps.s26downloadorganizer.MUTATIONS_ENABLED"
 
-def mutations_disabled_in_xmltree(tree):
+def marker_in_xmltree(tree, marker, enabled):
     blocks = re.split(r"\n\s*E: ", tree)
     named = [block for block in blocks if block.startswith("meta-data ") and
-             re.search(r'android:name\([^)]*\)="' + re.escape(MARKER) + '"', block)]
-    return len(named) == 1 and re.search(r"android:value\([^)]*\)=\(type 0x12\)0x0+\b", named[0]) is not None
+             re.search(r'android:name\([^)]*\)="' + re.escape(marker) + '"', block)]
+    value = "0xffffffff" if enabled else "0x0+"
+    return len(named) == 1 and re.search(r"android:value\([^)]*\)=\(type 0x12\)" + value + r"\b", named[0]) is not None
+
+def mutations_disabled_in_xmltree(tree):
+    return marker_in_xmltree(tree, MARKER, False)
 
 def main():
     # Defense in depth. Protected GitHub environment approval remains the primary secret boundary.
@@ -33,14 +39,17 @@ def main():
     if not re.fullmatch(r"[0-9a-f]{64}", pin):
         raise SystemExit("Pinned signing certificate must be a SHA-256 fingerprint")
     tools = Path(os.environ["ANDROID_HOME"]) / "build-tools/37.0.0"
-    input_apk = Path("unsigned-input/app-debug.apk")
+    input_apk = Path("unsigned-input/app-diagnostic.apk")
+    require_standalone_diagnostic(identity(input_apk))
     tree = subprocess.check_output([str(tools / "aapt"), "dump", "xmltree", str(input_apk), "AndroidManifest.xml"], text=True)
     if not mutations_disabled_in_xmltree(tree):
         raise SystemExit("APK is not explicitly marked mutation-disabled; signing refused.")
+    if not marker_in_xmltree(tree, COPY_MARKER, True):
+        raise SystemExit("Expected explicitly labeled synthetic-fixture diagnostic build; signing refused.")
     runner_temp = Path(os.environ["RUNNER_TEMP"])
     output_dir = runner_temp / "s26-signed-output"
     output_dir.mkdir(mode=0o700, exist_ok=False)
-    output = output_dir / "s26-build-3-1-stable-signed-engineering.apk"
+    output = output_dir / "s26-build-3-2-stable-signed-standalone-diagnostic.apk"
     signer = tools / "apksigner"
     with tempfile.TemporaryDirectory(prefix="s26-signing-", dir=runner_temp) as private:
         keystore = Path(private) / "development.p12"
@@ -58,7 +67,7 @@ def main():
         with output.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         (output_dir / "certificate.txt").write_text(
-            "ENGINEERING ONLY - MUTATIONS DISABLED\nCertificate SHA-256: " + pin +
+            "ENGINEERING ONLY - MOVE/UNDO MUTATIONS DISABLED; SYNTHETIC DIAGNOSTIC COPY ENABLED\nApplication ID: " + DIAGNOSTIC_ID + "\nSeparate app-private journal; installs alongside main app.\nCertificate SHA-256: " + pin +
             "\nCommit: " + os.environ.get("GITHUB_SHA", "unknown") + "\nAPK SHA-256: " + digest + "\n"
         )
 

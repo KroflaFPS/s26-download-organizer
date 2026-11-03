@@ -38,7 +38,7 @@ are implemented; device acceptance and published CI evidence are tracked separat
 - [x] Build 2 merged at `86082b4b887a82d66cef41ea8072428d50f7f254` via PR #2
   and owner-tested on Android 17, as reported by KroflaFPS.
 
-## 3. Safe operations and persistent journal — Build 3 / 3.1 engineering subset
+## 3. Safe operations and persistent journal — Build 3 / 3.1 foundation and Build 3.2 experiment
 
 - [x] Room journal, UUID/identity claims, revisioned phase events, schema v1/v2 exports and explicit migration 1→2.
 - [x] Portable single-file coordinator with no-clobber naming/publication contracts,
@@ -64,8 +64,26 @@ are implemented; device acceptance and published CI evidence are tracked separat
 - [ ] Enable a reviewed owner-testable operational build only after release gates.
 - [ ] Independent Jinx audit and KroflaFPS Build 3 device acceptance.
 
-JVM success does not complete hardware crash/durability gates. The shipping
-Build 3.1 engineering APK preserves read-only Downloads and cannot modify user files.
+Build 3.1 was merged through PR #3 at main 08dddedf9241b403de738787e5c6ec5297429e30.
+Build 3.2 uses a new draft PR and adds only this controlled experiment:
+
+- [x] Separate synthetic-fixture-only copy capability and dedicated input/output roots.
+- [x] Exclusive allocation, bounded verification, separate diagnostic journal/schema 3,
+  explicit 2→3 migration, retained partial/staging outputs and evidence-only recovery.
+- [x] Explicit review, fixture/hash allowlist, maximum 1 MiB, no automatic triggering.
+- [x] Synthetic fixture generator and public APK certificate comparison/report tooling.
+- [ ] Independent audit of the exact experimental source/artifact before device use.
+- [ ] Demonstrate anchored reads/O_EXCL/sync/permission/crash behavior on S26 Android 17.
+- [x] Resolve the same-package certificate blocker with a distinct standalone
+  diagnostic build/label, private sandbox and package-specific Settings/artifacts.
+- [ ] Owner verify side-by-side installation and unchanged Build 3.1 data/history.
+- [ ] Establish permanent main signing and verify actual same-package upgrades;
+  standalone installation does not solve old main-key continuity.
+- [ ] Owner acceptance of the diagnostic copy experiment; no production move approval.
+
+JVM success does not complete hardware crash/durability gates. The generic move,
+Undo/removal gate stays disabled; only two reproducible synthetic fixtures can be
+copied by the new separately identified diagnostic capability. Builds 4–7 remain untouched.
 
 ## 4. File readiness verification
 

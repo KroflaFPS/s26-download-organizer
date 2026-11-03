@@ -6,15 +6,17 @@ Build 1 established the launchable Compose application and CI. Build 2 was merge
 at `86082b4b887a82d66cef41ea8072428d50f7f254` via PR #2 and confirmed working on the
 S26 Ultra/Android 17 by KroflaFPS. Build 3 preserves that permission/inventory code.
 
-**Build 3.1 is a gated engineering subset. No real Android file mutation or Undo is
-enabled.** Implemented: coordinator/state model, Room journal, conservative
-reconciliation logic, review/history UI and realistic disposable-fixture tests.
-Not implemented/approved: a production Android shared-storage writer with safe
-anchored I/O/publication/removal semantics, owner signing credentials and hardware
-recovery/durability acceptance. The shipping `AndroidOperationFiles` adapter
-rejects all writes and cannot conditionally unlink. Bounded descriptor-backed
-recovery reads are implemented; unsupported roots, identities or /proc access
-return unverifiable evidence. Android/FUSE validation is still pending. Do not describe these blocked capabilities as an operational move feature.
+Build 3.1 / PR #3 was merged at `08dddedf9241b403de738787e5c6ec5297429e30`.
+Build 3.2 adds a separate, explicitly initiated **synthetic-fixture-only copy
+capability**. Generic MOVE/UNDO and the Android operation writer/removal stay
+disabled. The diagnostic implementation is experimental; Samsung API behavior,
+installer upgrade retention and hardware durability are unverified.
+
+See [Build 3.2 capability/state/device review](BUILD_3_2_DEVICE_TEST.md). It narrows
+source access to two exact reproducible fixture hashes inside the dedicated test
+input folder and writes only newly exclusively allocated files inside the exact
+test output folder. It performs non-atomic publication with tracked partial final
+files, never a replacing rename or deletion. No legacy state-machine weakening.
 
 ## Toolchain and persistence dependencies
 
@@ -22,7 +24,7 @@ One `:app` module; application ID `com.kroflafps.s26downloadorganizer`.
 AGP 9.5.0, Gradle 9.8.2, JDK 21, built-in Kotlin/Compose compiler 2.2.10,
 Compose BOM 2026.09.00, Material 3, AndroidX Core 1.19.1, Activity 1.13.0,
 Lifecycle 2.11.0, coroutines 1.10.2, compile/target API 37, minimum API 26 and
-JUnit 4.13.2 are retained. Version code/name: 4/0.3.1.
+JUnit 4.13.2 are retained. Version code/name: 6/0.3.2-diagnostic for the standalone diagnostic; normal versionName remains 0.3.2.
 
 Room 2.8.5, Room Gradle plugin 2.8.5 and **KSP2 2.3.4** add journal generation and
 schema export without replacing AGP's Kotlin plugin. Official guidance checked
@@ -123,8 +125,9 @@ Filesystem and SQLite never share an atomic transaction.
 
 ## Journal, schema and concurrency
 
-App-private Room database `operation-journal.db`, exported schema version **2**:
-operations, append-only phase events and a singleton durable recovery cursor. Records include UUID/type/related move,
+App-private Room database `operation-journal.db`, exported schema version **3**:
+legacy operations/events/cursor plus separate diagnostic copies/events. Cursor
+slot 0 retains legacy recovery; slot 1 serves the diagnostic recovery cycle. Records include UUID/type/related move,
 source/target/stage paths, original name, identity/change evidence, size/hash,
 phase/error, recovery flag, timestamps/revision, copied/verified/published/sync/
 removal evidence. Complete contents are never stored. Sensitive path/hash metadata
@@ -158,6 +161,9 @@ source-directory synchronization and journal finalization. It is never inferred
 from a successful copy alone. Events retain phase chronology by revision even
 when wall-clock times are not useful; history prioritizes unresolved records.
 
+Schemas 1 and 2 remain unchanged. Migration 2→3 adds the separate diagnostic
+tables and a unique unresolved-source claim; the legacy tables/events are
+preserved. Both upgrade paths and reopened diagnostic data are tested.
 Schema 1 remains unchanged. Explicit migration 1→2 creates the cursor table and
 quarantines legacy COMPLETED rows lacking adapter-confirmed removal, appending
 a RECOVERY_REQUIRED event, clearing completion time and preserving claims/data.
@@ -230,7 +236,10 @@ configuration of the environment and main-only branch rules; actual provisioning
 has not been verified. The signing script additionally rejects PR/non-main CI
 contexts and requires a unique compiled boolean-false mutation marker. Missing credentials/pin mismatch fail, with no
 stable-signing fallback. Disposable-key tests check this tooling, not owner setup.
-Even the optional stable-signed engineering APK remains mutation-disabled.
+The optional stable-signed diagnostic APK has the same narrow synthetic-copy
+capability; signing cannot enable generic MOVE/UNDO. Public certificate reports
+and optional prior-APK comparison do not prove device installer/data-retention
+behavior. Any mismatch stops testing without uninstall/data clearing.
 
 Stable signatures support updates, not protection from uninstall/Clear data,
 device loss or hardware failure. Journal backup/device transfer are excluded;
@@ -253,3 +262,59 @@ are disabled; future best-effort indexing cannot establish movement or update
 every browser/third-party download database. No four-tab UI redesign, AMOLED
 restyle, monitoring, notifications, services, boot receiver or remote service is
 implemented. Independent Jinx audit and owner hardware acceptance remain pending.
+
+## Separate Build 3.2 diagnostic capability
+
+The `diagnostic` coordinator, bounded streaming/verification implementation and
+Room records are separate from MOVE/UNDO. `AndroidDiagnosticCopies` exposes no
+caller-supplied root/path; its public factory resolves primary storage itself.
+The existing read-only AndroidOperationFiles and mutation constant are unchanged.
+A dedicated diagnostic build type, exact diagnostic application-ID check and
+platform/storage/permission checks gate the new capability independently. Normal
+debug and release disable it. No test-only filesystem backend
+is packaged. UI explicitly inspects two known fixture names, then shows exact
+paths and warnings before each user-confirmed copy; it never scans recursively.
+
+Writable file descriptors exist only after O_CREAT|O_EXCL|O_NOFOLLOW returns a
+fresh regular file in an anchored output directory. They are retained; the app
+never reopens an existing stage/final path writable. SHA-256 and source identity/
+stamp checks bracket both bounded copies; file/directory sync is required before
+finalization. The stage is retained, and the final name can be partial during
+writing. No content-atomic publication claim. Any failed intent/phase write,
+cancellation, missing permission, unsupported sync or verification conflict
+prevents a success response and retains recorded paths. Recovery performs only
+bounded observations/journal updates and cannot turn interruption into success.
+
+Sources must match the exact fixed synthetic hashes, not merely a test-looking
+name. This is not file classification/readiness or an arbitrary Downloads copy
+feature. Nothing deletes any original/output, implements Undo cleanup, watches
+files or schedules work. Directory relocation/adversarial races and sudden-loss
+durability remain limitations requiring separate review; see the full device
+experiment document for the exact runtime checks and stop conditions.
+
+## Standalone diagnostic identity and signing-blocker repair
+
+The owner reported that Build 3.2's original same-package APK could not update
+Build 3.1 because their certificates differ. This repair keeps the production
+application ID unchanged and adds `.diagnostic` only to a dedicated diagnostic
+build type. The namespace/code package remains unchanged. The launcher/app title
+is S26 Organizer Diagnostic, and its Settings instructions identify that app.
+Normal debug and release use the original ID, disable synthetic-copy controls and
+cannot pass the Android diagnostic runtime gate. CI builds normal debug for
+regression/package checks and uploads only the standalone diagnostic APK.
+
+Each package has its own context/UID and app-private Room journal, with no shared
+UID, cross-app provider/export/import or private-data copying. Startup-provider
+authorities and AndroidX signature permissions derive from each application ID.
+Room schema/migrations stay unchanged; separate installation does not open or
+migrate installed Build 3.1's database. Storage settings use activity.packageName,
+so grant All Files Access to the diagnostic separately. Shared storage remains
+shared, with exactly the same synthetic-fixture and exclusive-allocation rules.
+
+The new APK need not match Build 3.1's certificate for first parallel installation.
+Later updates to the same diagnostic ID still require certificate continuity.
+No credentials are required for this experiment; no source deletion or generic
+mutation gate was enabled. The [signing investigation](SIGNING_STRATEGY.md)
+documents the future main-key plan and why a new key cannot replace the installed
+main key without a separately reviewed continuity/migration solution. Device
+coinstallation/private-journal isolation and copying still require owner testing.

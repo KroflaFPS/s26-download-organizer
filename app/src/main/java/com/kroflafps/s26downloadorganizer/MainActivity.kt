@@ -1,6 +1,7 @@
 package com.kroflafps.s26downloadorganizer
 
 import android.os.Bundle
+import kotlinx.coroutines.flow.map
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -39,15 +40,34 @@ class MainActivity : ComponentActivity() {
         })[OperationsViewModel::class.java]
     }
 
+    private val diagnostic: com.kroflafps.s26downloadorganizer.ui.DiagnosticCopyViewModel by lazy {
+        val app = application as OrganizerApplication
+        ViewModelProvider(this, object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                require(modelClass.isAssignableFrom(com.kroflafps.s26downloadorganizer.ui.DiagnosticCopyViewModel::class.java))
+                @Suppress("UNCHECKED_CAST")
+                return com.kroflafps.s26downloadorganizer.ui.DiagnosticCopyViewModel(app.diagnostic,
+                    app.diagnosticJournal.history().map { rows -> rows.map { it.record } }) as T
+            }
+        })[com.kroflafps.s26downloadorganizer.ui.DiagnosticCopyViewModel::class.java]
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             val state by inventory.state.collectAsStateWithLifecycle()
+            val diagnosticState by diagnostic.state.collectAsStateWithLifecycle()
             val operationState by operations.state.collectAsStateWithLifecycle()
             S26DownloadOrganizerTheme {
                 DashboardScreen(
                     state = state,
+                    diagnostic = diagnosticState,
+                    onInspectDiagnostic = diagnostic::inspect,
+                    onReviewDiagnostic = diagnostic::review,
+                    onRecoverDiagnostic = diagnostic::recover,
+                    onDismissDiagnostic = diagnostic::dismiss,
+                    onConfirmDiagnostic = diagnostic::confirm,
                     operations = operationState,
                     onReviewMove = operations::review,
                     onReviewUndo = operations::reviewUndo,
@@ -70,6 +90,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        diagnostic.onPause()
         inventory.onPause()
         operations.onPause()
         super.onPause()

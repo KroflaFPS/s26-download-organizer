@@ -1,6 +1,7 @@
 package com.kroflafps.s26downloadorganizer.history
 
 import android.app.Application
+import com.kroflafps.s26downloadorganizer.diagnostic.*
 import com.kroflafps.s26downloadorganizer.operations.*
 import java.util.UUID
 import java.nio.file.Files
@@ -84,7 +85,7 @@ class JournalDatabaseTest {
         var database = JournalDatabase.open(context)
         val entry = record()
         assertTrue(database.journal().create(entry))
-        database.openHelper.writableDatabase.execSQL("PRAGMA user_version=3")
+        database.openHelper.writableDatabase.execSQL("PRAGMA user_version=4")
         database.close()
         database = JournalDatabase.open(context)
         try { database.journal().get(entry.id); fail("Missing downgrade migration must fail closed") }
@@ -148,6 +149,8 @@ class JournalDatabaseTest {
         val sql = database.openHelper.writableDatabase
         // Downgrade the disposable fixture structurally to the exact v1 layout/hash, without deleting operation data.
         sql.execSQL("DROP TABLE recovery_cursor")
+        sql.execSQL("DROP TABLE diagnostic_copies")
+        sql.execSQL("DROP TABLE diagnostic_events")
         sql.execSQL("UPDATE room_master_table SET identity_hash=? WHERE id=42", arrayOf(oldSchema.getString("identityHash")))
         sql.execSQL("UPDATE operations SET removalEvidence='absent-after-recorded-removal-intent' WHERE id=?", arrayOf(complete.id))
         sql.execSQL("PRAGMA user_version=1")
@@ -250,6 +253,67 @@ class JournalDatabaseTest {
         assertEquals(original, dao.get(original.id)?.record)
         assertEquals(1, dao.events(original.id).size)
         assertEquals(Phase.COPYING, dao.events(original.id).single().phase)
+        database.close()
+    }
+
+    @Test fun migrationTwoToThreePreservesLegacyRowsEventsAndSupportsSeparateCopyJournal() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var database = JournalDatabase.open(context)
+        val original = record(); database.journal().create(original)
+        val previousEvents = database.journal().events(original.id)
+        val schema = org.json.JSONObject(java.io.File(requireNotNull(System.getProperty("s26.schema"))).parentFile!!.resolve("2.json").readText()).getJSONObject("database")
+        val sql = database.openHelper.writableDatabase
+        sql.execSQL("DROP TABLE diagnostic_copies"); sql.execSQL("DROP TABLE diagnostic_events")
+        sql.execSQL("UPDATE room_master_table SET identity_hash=? WHERE id=42", arrayOf(schema.getString("identityHash")))
+        sql.execSQL("PRAGMA user_version=2"); database.close()
+        database = JournalDatabase.open(context)
+        assertEquals(original, database.journal().get(original.id)?.record)
+        assertEquals(previousEvents, database.journal().events(original.id))
+        assertTrue(database.diagnostic().history().first().isEmpty())
+        val root = Files.createTempDirectory(context.cacheDir.toPath(), "copy-migration-")
+        Files.createDirectories(root.resolve(DiagnosticPolicy.INPUT)); Files.createDirectories(root.resolve(DiagnosticPolicy.OUTPUT))
+        val source = Files.write(root.resolve(DiagnosticPolicy.INPUT).resolve("s26-test-empty.bin"), byteArrayOf())
+        val engine = DiagnosticCopyCoordinator({ DiagnosticIo(FixtureDirectories(root)) }, database.diagnostic(), { true }, { true })
+        val copied = engine.copy(UUID.randomUUID().toString(), source.fileName.toString(), true)
+        assertEquals(CopyPhase.COPY_ONLY, copied.phase)
+        val events = database.diagnostic().events(copied.id)
+        assertEquals((0..copied.revision).toList(), events.map { it.revision })
+        database.close(); database = JournalDatabase.open(context)
+        assertEquals(copied, database.diagnostic().get(copied.id))
+        assertEquals(events, database.diagnostic().events(copied.id))
+        assertTrue(database.diagnostic().page().isEmpty())
+        assertTrue(Files.exists(source)); assertEquals(0L, Files.size(Paths.get(requireNotNull(copied.finalPath))))
+        assertEquals(original, database.journal().get(original.id)?.record)
+        database.close()
+    }
+
+    @Test fun diagnosticEventFailureRollsBackAndReopenedRecoveryPreservesPartialOutput() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var database = JournalDatabase.open(context)
+        val root = Files.createTempDirectory(context.cacheDir.toPath(), "copy-rollback-")
+        Files.createDirectories(root.resolve(DiagnosticPolicy.INPUT)); Files.createDirectories(root.resolve(DiagnosticPolicy.OUTPUT))
+        val source = Files.write(root.resolve(DiagnosticPolicy.INPUT).resolve("s26-test-empty.bin"), byteArrayOf())
+        val id = UUID.randomUUID().toString()
+        database.openHelper.writableDatabase.execSQL("CREATE TRIGGER fail_copy_event BEFORE INSERT ON diagnostic_events WHEN NEW.revision=1 BEGIN SELECT RAISE(ABORT, 'fixture failure'); END")
+        val engine = DiagnosticCopyCoordinator({ DiagnosticIo(FixtureDirectories(root)) }, database.diagnostic(), { true }, { true })
+        try { engine.copy(id, source.fileName.toString(), true); fail() } catch (_: Exception) { }
+        val intent = requireNotNull(database.diagnostic().get(id))
+        assertEquals(CopyPhase.STAGE_ALLOCATING, intent.phase)
+        assertEquals(1, database.diagnostic().events(id).size)
+        assertTrue(Files.exists(Paths.get(intent.stagePath)))
+        assertTrue(Files.exists(source))
+        // Active source claims prevent another request adopting an unknown stage or creating duplicates.
+        assertFalse(database.diagnostic().create(intent.copy(id = UUID.randomUUID().toString(), stagePath = root.resolve(DiagnosticPolicy.OUTPUT).resolve(".s26-diagnostic-00000000-0000-0000-0000-000000000000.part").toString()).let {
+            it.copy(stagePath = root.resolve(DiagnosticPolicy.OUTPUT).resolve(".s26-diagnostic-${it.id}.part").toString())
+        }))
+        database.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_copy_event")
+        database.close(); database = JournalDatabase.open(context)
+        val recovery = DiagnosticCopyCoordinator({ DiagnosticIo(FixtureDirectories(root)) }, database.diagnostic(), { true }, { true })
+        recovery.recover(); val once = database.diagnostic().get(id); recovery.recover()
+        assertEquals(once, database.diagnostic().get(id))
+        assertEquals(CopyPhase.RECOVERY_REQUIRED, once?.phase)
+        assertTrue(Files.exists(source)); assertTrue(Files.exists(Paths.get(intent.stagePath)))
+        assertNull(once?.finalPath)
         database.close()
     }
 

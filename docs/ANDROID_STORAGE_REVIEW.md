@@ -1,5 +1,9 @@
 # Build 3.1 Android storage feasibility review
 
+**Historical Build 3.1 assessment.** Build 3.2 adds a separate synthetic-only
+O_EXCL copy experiment; see [current capability review](BUILD_3_2_DEVICE_TEST.md).
+Generic mutation/removal stays disabled.
+
 Reviewed 2026-11-02 against the public Android references and API 37 SDK.
 This is an engineering assessment, not Samsung hardware acceptance. All APKs
 remain mutation-disabled. No real Downloads mutation tests were run.

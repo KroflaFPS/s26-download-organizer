@@ -8,7 +8,7 @@ import java.util.Locale
 object OperationPolicy {
     // Deliberate compile-time safety gate. Signing alone must NEVER enable mutations.
     const val MUTATIONS_ENABLED = false
-    const val GATE_REASON = "Engineering build: file changes are disabled. Stable signing/journal retention and an audited Android storage adapter are required."
+    const val GATE_REASON = "MOVE and Undo are disabled. The separate synthetic-fixture diagnostic can only copy approved test bytes; it never removes originals."
 
     fun eligibleName(name: String): Boolean {
         if (name.isEmpty() || name == "." || name == ".." || '/' in name || '\u0000' in name) return false

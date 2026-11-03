@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().with_name("sign_engineering_apk.py")
-APK = SCRIPT.parent.parent / "app/build/outputs/apk/debug/app-debug.apk"
+APK = SCRIPT.parent.parent / "app/build/outputs/apk/diagnostic/app-diagnostic.apk"
 KEYTOOL = Path(os.environ["JAVA_HOME"]) / "bin/keytool"
 
 class SigningTests(unittest.TestCase):
@@ -33,10 +33,10 @@ class SigningTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.keys.cleanup()
 
-    def invoke(self, directory, credentials=True, wrong_pin=False, github_context=None):
+    def invoke(self, directory, credentials=True, wrong_pin=False, github_context=None, input_apk=APK):
         work = Path(directory)
         (work / "unsigned-input").mkdir()
-        shutil.copyfile(APK, work / "unsigned-input/app-debug.apk")
+        shutil.copyfile(input_apk, work / "unsigned-input/app-diagnostic.apk")
         env = {name: value for name, value in os.environ.items() if not name.startswith("S26_DEV_")}
         env.pop("GITHUB_ACTIONS", None)  # Existing disposable-key tests model a trusted local signing session.
         if github_context:
@@ -91,9 +91,66 @@ class SigningTests(unittest.TestCase):
         self.assertFalse(mutations_disabled_in_xmltree(disabled + disabled))
         self.assertFalse(mutations_disabled_in_xmltree(""))
 
+    def test_public_report_verifies_actual_apks_and_refuses_certificate_mismatch(self):
+        reporter = SCRIPT.with_name("report_apk.py")
+        with tempfile.TemporaryDirectory(prefix="s26-report-test-") as directory:
+            result = self.invoke(directory)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            apk = Path(directory) / "s26-signed-output/s26-build-3-2-stable-signed-standalone-diagnostic.apk"
+            report = Path(directory) / "comparison.txt"
+            same = subprocess.run(["python3", str(reporter), str(apk), "--previous", str(apk), "--output", str(report)], capture_output=True, text=True)
+            self.assertEqual(same.returncode, 0, same.stderr)
+            self.assertIn("MATCH:", report.read_text())
+            different = subprocess.run(["python3", str(reporter), str(apk), "--previous", str(APK), "--output", str(report)], capture_output=True, text=True)
+            self.assertNotEqual(different.returncode, 0)
+            self.assertIn("MISMATCH:", report.read_text())
+            self.assertIn("do not install, uninstall or clear data", report.read_text())
+
+    def test_protected_signer_refuses_normal_application_before_private_material_is_written(self):
+        normal = APK.parents[1] / "debug/app-debug.apk"
+        with tempfile.TemporaryDirectory(prefix="s26-wrong-app-") as directory:
+            result = self.invoke(directory, input_apk=normal)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("normal package signing/publishing refused", result.stderr)
+            self.assertFalse((Path(directory) / "s26-signed-output").exists())
+
+    def test_compiled_packages_are_distinct_and_coinstallation_has_no_authority_or_permission_collision(self):
+        from apk_identity import identity, MAIN_ID, DIAGNOSTIC_ID, DIAGNOSTIC_LABEL
+        tools = Path(os.environ["ANDROID_HOME"]) / "build-tools/37.0.0"
+        normal = APK.parents[1] / "debug/app-debug.apk"
+        self.assertEqual(identity(normal)["application_id"], MAIN_ID)
+        self.assertEqual(identity(APK)["application_id"], DIAGNOSTIC_ID)
+        self.assertEqual(identity(APK)["label"], DIAGNOSTIC_LABEL)
+        from sign_engineering_apk import marker_in_xmltree, COPY_MARKER, MARKER
+        for apk, expected, diagnostic in [(normal, MAIN_ID, False), (APK, DIAGNOSTIC_ID, True)]:
+            tree = subprocess.check_output([str(tools / "aapt"), "dump", "xmltree", str(apk), "AndroidManifest.xml"], text=True)
+            self.assertTrue(marker_in_xmltree(tree, COPY_MARKER, diagnostic))
+            self.assertTrue(marker_in_xmltree(tree, MARKER, False))
+            self.assertIn(expected + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION", tree)
+            self.assertIn(expected + ".androidx-startup", tree)
+            self.assertNotIn("android:sharedUserId", tree)
+
+    def test_report_treats_normal_and_diagnostic_apks_as_separate_installs(self):
+        reporter = SCRIPT.with_name("report_apk.py")
+        normal = APK.parents[1] / "debug/app-debug.apk"
+        with tempfile.TemporaryDirectory(prefix="s26-separate-app-report-") as directory:
+            signed = self.invoke(directory)
+            self.assertEqual(signed.returncode, 0, signed.stderr)
+            apk = Path(directory) / "s26-signed-output/s26-build-3-2-stable-signed-standalone-diagnostic.apk"
+            report = Path(directory) / "comparison.txt"
+            result = subprocess.run(["python3", str(reporter), str(apk), "--previous", str(normal), "--output", str(report)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("SIDE-BY-SIDE:", report.read_text())
+            self.assertIn("Certificate match not required", report.read_text())
+            refused = subprocess.run(["python3", str(reporter), str(normal), "--expect-package", "com.kroflafps.s26downloadorganizer.diagnostic", "--output", str(Path(directory) / "wrong.txt")], capture_output=True, text=True)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertFalse((Path(directory) / "wrong.txt").exists())
+
     def test_disposable_mutation_adapters_are_not_packaged(self):
         from zipfile import ZipFile
         with ZipFile(APK) as package:
             dex = b"".join(package.read(name) for name in package.namelist() if name.endswith(".dex"))
         self.assertNotIn(b"FixtureFiles", dex)
         self.assertNotIn(b"MemoryJournal", dex)
+        self.assertNotIn(b"FixtureDirectories", dex)
+        self.assertNotIn(b"MemoryDiagnosticJournal", dex)
