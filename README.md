@@ -1,6 +1,15 @@
 # S26 Download Organizer
 
 Offline Android organizer for the Samsung Galaxy S26 Ultra on Android 17.
+**Build 5 adds a read-only classification preview: PREVIEW ONLY • NO FILES MOVED.**
+Tap **Preview type** on one Downloads file to see a bounded offline suggestion,
+format evidence, provisional readiness, Review reason and bytes read. It never
+creates destination folders or enables operations. The separate `:classifier`
+module is pure Kotlin/JVM. [Architecture and supported/held formats](docs/BUILD_5_ARCHITECTURE.md),
+[phone-only acceptance](docs/BUILD_5_DEVICE_TEST.md), and [review handoff](docs/BUILD_5_HANDOFF.md).
+
+The existing Build 1–3.1 foundation below is retained. PR #4 diagnostic copy and
+PR #6 telemetry remain separate drafts; their code is not integrated.
 Build 2 was merged at `86082b4b887a82d66cef41ea8072428d50f7f254` through PR #2
 and owner-tested, as confirmed by KroflaFPS. Its permission flow, inventory,
 light/dark theme, launcher and toolchain are preserved.
@@ -39,26 +48,28 @@ fail-closed release gate, not a working Android move feature disguised as succes
   reverse request. Its execution is disabled in this APK. Copy-only/unresolved
   operations never promise Undo. Replace/Overwrite is never an option.
 
-The core forward target is **Organized/Other/** only. No extension classification
-or other category routing is implemented. The installed APK creates neither
+The operation core forward target is **Organized/Other/** only. Build 5's seven-category
+classification proposals are independent of that operation path. The installed APK creates neither
 Organized/ nor partial outputs. Inventory remains metadata-only; recovery may
 read and SHA-256 hash only explicitly journaled files within bounded limits.
-It does not parse content, classify it, or transmit it. The existing
+Only an explicit Build 5 preview tap parses a bounded content sample; nothing is transmitted. The existing
 boundary-aware inventory exclusion for Organized/ remains in place.
 
 ## Build and tests
 
 The unchanged baseline is AGP 9.5.0, Gradle 9.8.2, JDK 21, Kotlin/Compose compiler
-2.2.10, Compose BOM 2026.09.00, compile/target API 37, minimum API 26, one `:app`.
-Build 3.1 uses versionCode 4/versionName 0.3.1. Stable Room 2.8.5 and KSP2 2.3.4
+2.2.10, Compose BOM 2026.09.00, compile/target API 37, minimum API 26. Build 5 adds
+`:classifier` using the same Kotlin version and existing JUnit, without new runtime libraries.
+Build 5 uses versionCode 8/versionName 0.5.0-preview. Stable Room 2.8.5 and KSP2 2.3.4
 were selected after checking the official documentation and then compiling with
 this toolchain. Robolectric 4.16.1 is test-only.
 
 ```sh
 sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
-./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+./gradlew --no-daemon :classifier:test testDebugUnitTest lintDebug assembleDebug assembleRelease
 python3 -m unittest discover -s tools -p 'test_*.py'
 python3 tools/check_room_schema.py
+python3 tools/verify_preview_apk.py
 ```
 
 Set JAVA_HOME to JDK 21 and ANDROID_HOME to the SDK. The signing-script tests
@@ -81,13 +92,13 @@ retained staging aliases, deletion race, durability limits and remaining gates.
 
 1. Sign into GitHub, open this repository → **Actions → Build debug APK**.
 2. Choose a successful run for the intended branch/commit. Download
-   **s26-download-organizer-build-3-1-engineering-debug** under **Artifacts**.
+   **s26-build-5-readonly-preview** under **Artifacts**; retain `certificate.txt`.
 3. Extract the ZIP in Samsung **My Files**, then tap `app-debug.apk`. Permit
    installation from the opening app if Android prompts. Samsung Auto Blocker
    or device policy may require reviewing **Settings → Security and privacy**.
-4. Launch and verify **Build 3.1 · Engineering**, the disabled-mutation explanation,
+4. Launch and verify **Build 5 · Read-only preview**, the disabled-mutation explanation,
    and the preserved Downloads setup/inventory. Artifacts expire after 14 days.
-   Reports and exported schema are in **build-3-1-verification-reports**.
+   Reports and exported schema are in **build-5-verification-reports**.
 
 Ordinary PR/push artifacts use an ephemeral Android debug key. They are explicitly
 engineering-only. A differently signed APK may not update an installed Build 2.
@@ -184,7 +195,7 @@ not claimed. No release gate may be bypassed just to enable a button.
 
 ## Roadmap and collaboration
 
-Builds 4–7 retain readiness verification, local classification, hybrid background
+Build 5 implements advisory local classification only. Builds 4/6/7 retain readiness verification, hybrid background
 automation, routing customization, notifications and UI refinement. Build 3
 blockers must be resolved explicitly; Build 4 readiness alone cannot fix deletion
 TOCTOU races. No four-tab redesign, empty category grids, services or workers

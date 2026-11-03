@@ -60,7 +60,7 @@ class ManifestContractTest {
         assertEquals("signature", elements(merged, "permission").single().getAttributeNS(android, "protectionLevel"))
         assertEquals("$applicationId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION", names(merged, "permission").single())
         assertEquals(applicationId, merged.documentElement.getAttribute("package"))
-        assertEquals("4", merged.documentElement.getAttributeNS(android, "versionCode"))
+        assertEquals("8", merged.documentElement.getAttributeNS(android, "versionCode"))
         val gate = elements(merged, "meta-data").single { it.getAttributeNS(android, "name") == "$applicationId.MUTATIONS_ENABLED" }
         assertEquals("false", gate.getAttributeNS(android, "value"))
         checkLauncher(merged)

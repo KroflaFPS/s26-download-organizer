@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "S26DownloadOrganizer"
 include(":app")
+include(":classifier")
