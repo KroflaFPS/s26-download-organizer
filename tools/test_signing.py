@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().with_name("sign_engineering_apk.py")
-APK = SCRIPT.parent.parent / "app/build/outputs/apk/debug/app-debug.apk"
+APK = SCRIPT.parent.parent / "app/build/outputs/apk/telemetry/app-telemetry.apk"
 KEYTOOL = Path(os.environ["JAVA_HOME"]) / "bin/keytool"
 
 class SigningTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class SigningTests(unittest.TestCase):
     def invoke(self, directory, credentials=True, wrong_pin=False, github_context=None):
         work = Path(directory)
         (work / "unsigned-input").mkdir()
-        shutil.copyfile(APK, work / "unsigned-input/app-debug.apk")
+        shutil.copyfile(APK, work / "unsigned-input/app-telemetry.apk")
         env = {name: value for name, value in os.environ.items() if not name.startswith("S26_DEV_")}
         env.pop("GITHUB_ACTIONS", None)  # Existing disposable-key tests model a trusted local signing session.
         if github_context:

@@ -15,7 +15,7 @@ import com.kroflafps.s26downloadorganizer.ui.OperationsViewModel
 import com.kroflafps.s26downloadorganizer.ui.InventoryViewModel
 import com.kroflafps.s26downloadorganizer.ui.theme.S26DownloadOrganizerTheme
 
-class MainActivity : ComponentActivity() {
+open class MainActivity : ComponentActivity() {
     private val storageAccess = StorageAccessAdapter()
     private val inventory: InventoryViewModel by lazy {
         ViewModelProvider(this, object : ViewModelProvider.Factory {
@@ -39,6 +39,9 @@ class MainActivity : ComponentActivity() {
         })[OperationsViewModel::class.java]
     }
 
+    @androidx.compose.runtime.Composable
+    protected open fun ExtraDiagnostics() { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -48,6 +51,7 @@ class MainActivity : ComponentActivity() {
             S26DownloadOrganizerTheme {
                 DashboardScreen(
                     state = state,
+                    extraPanel = { ExtraDiagnostics() },
                     operations = operationState,
                     onReviewMove = operations::review,
                     onReviewUndo = operations::reviewUndo,

@@ -1,103 +1,104 @@
 # S26 Download Organizer
 
-Offline Android organizer for the Samsung Galaxy S26 Ultra on Android 17.
-Build 2 was merged at `86082b4b887a82d66cef41ea8072428d50f7f254` through PR #2
-and owner-tested, as confirmed by KroflaFPS. Its permission flow, inventory,
-light/dark theme, launcher and toolchain are preserved.
+Offline Android organizer foundation for Samsung Galaxy S26 Ultra / Android 17.
+**Build 4 is a read-only trigger/readiness experiment. Automatic organizing,
+MOVE, Undo execution and diagnostic copying remain disabled.**
 
-**Build 3.1 is an engineering-only, mutation-disabled build. It is NOT approved
-for real-file move/Undo testing.** Downloads stays read-only. Automatic
-organizing is not active. No owner signing credentials are assumed to exist.
+Builds 1–2 were merged and owner-tested. Build 3.1 is merged at `08ddded`;
+current `main` also contains the Codex skill installation at `354000e`. Build 3.2
+PR #4 remains separate and draft. KroflaFPS reports its side-by-side synthetic
+copy, collision, original-preservation, recovery and permission checks succeeded;
+these are owner reports, not independent durability/Android certification.
+This branch does not contain its copy implementation or schema 3.
 
-The implemented subset is a persistent Room journal, operation history and
-review dialogs, a capability-based single-file coordinator, and conservative
-recovery/Undo logic tested with disposable filesystem fixtures. The shipping
-Android adapter adds bounded, descriptor-backed local hash/identity observation,
-but has no writer or deletion capability. Its public API implementation still
-requires Samsung shared-storage validation. Signing alone cannot unlock it. This is a deliberate
-fail-closed release gate, not a working Android move feature disguised as success.
+**Audit repair status: OWNER DEVICE ACCEPTANCE AND INDEPENDENT ADA RE-AUDIT PENDING.**
+The original same-ID rearm was defective. The targeted repair reserves fresh
+native job IDs; live S26 repeated-callback/stop behavior is still unverified.
+WorkManager KEEP's late-finishing-worker window is reproduced and retained:
+durable requests can wait until later signal/manual/inexact periodic work.
 
-## Implemented behavior and limits
+## Build 4 implementation
 
-- Primary shared Downloads metadata inventory and All Files Access setup on API
-  30+. Settings success is never assumed to mean permission was granted.
-- API 26–29 still launch with an unsupported-inventory explanation. No legacy or
-  unrelated permissions, network access, services, workers or boot receivers.
-- Review a regular, apparently eligible file with **Review move**. The dialog
-  shows source/target and requires confirmation that downloading has finished;
-  **Confirm move remains disabled**. Known temporary names are not eligible.
-- Actual Room-backed history (empty until operations exist), journal-open errors,
-  and **Check recovery**. No fabricated history. Unresolved records are prominent.
-- Recovery is bounded, evidence-only and never retries, publishes, removes files,
-  or cleans up orphans. Without permission it defers. At most 20 rows and a
-  64 MiB aggregate verification allowance are considered per invocation. A durable
-  keyset cursor advances past large/unresolved rows; tap again to continue. Large
-  files stay explicitly deferred for manual review. Missing source names never
-  prove app-controlled removal, even with historical sync flags. An empty journal
-  does not prove hardware crash safety.
-- Undo is offered only for sufficiently verified completed moves with no prior
-  reverse request. Its execution is disabled in this APK. Copy-only/unresolved
-  operations never promise Undo. Replace/Overwrite is never an option.
+- Original flat Downloads inventory, All Files Access setup/revocation, Material 3
+  theme, disabled operation review and legacy journal/recovery are retained.
+- Separate **S26 Read-Only Telemetry** app, ID
+  `com.kroflafps.s26downloadorganizer.telemetry`. It installs alongside Build 3.1
+  and S26 Organizer Diagnostic, with its own permission, private journal and jobs.
+- Explicit opt-in native one-shot Downloads/Files content triggers, bounded
+  metadata-only subfolder observations, durable fenced checkpoints, unique ~2h
+  WorkManager fallback and boot/package restoration. No permanent service,
+  notification, automatic battery-exemption request or network permission.
+- UNKNOWN / NOT_READY / POSSIBLY_READY / READY_WITH_EVIDENCE observations remain
+  evidence labels only. Zero bytes and stable size do not prove completion.
+  No content hashing/parsing in telemetry, classifier or mutation authorization.
+- Enable/pause, manual read-only scan, registration check and redacted Markdown
+  clipboard/optional sharesheet export. At most 400 events, 4000 observations and
+  seven days on subsequent writes; traversal bounds and partial coverage visible.
 
-The core forward target is **Organized/Other/** only. No extension classification
-or other category routing is implemented. The installed APK creates neither
-Organized/ nor partial outputs. Inventory remains metadata-only; recovery may
-read and SHA-256 hash only explicitly journaled files within bounded limits.
-It does not parse content, classify it, or transmit it. The existing
-boundary-aware inventory exclusion for Organized/ remains in place.
+API 30+ and All Files Access are required for telemetry/inventory. API 26–29
+still launch with unsupported behavior explained. MediaStore may miss/directly
+coalesce writes; Doze, quotas and One UI can delay work. The registration snapshot
+and rough mtime timing cannot prove wake coverage or actual completion latency.
+Force-stop blocks execution until manual launch. Samsung acceptance remains pending.
 
-## Build and tests
+## Install without replacing existing journals
 
-The unchanged baseline is AGP 9.5.0, Gradle 9.8.2, JDK 21, Kotlin/Compose compiler
-2.2.10, Compose BOM 2026.09.00, compile/target API 37, minimum API 26, one `:app`.
-Build 3.1 uses versionCode 4/versionName 0.3.1. Stable Room 2.8.5 and KSP2 2.3.4
-were selected after checking the official documentation and then compiling with
-this toolchain. Robolectric 4.16.1 is test-only.
+In GitHub → **Actions → Build debug APK**, choose the successful Build 4 draft PR
+run for the reviewed head. Download **s26-build-4-readonly-telemetry**, extract it
+in My Files, inspect `certificate.txt` (package/label/commit/fingerprints), then tap
+`app-telemetry.apk`. It must install **S26 Read-Only Telemetry** as a separate app.
+Grant its own All Files Access and explicitly enable observation in its panel.
+No signing passwords or uninstall are needed for the first separate install.
+Do not install a normal main-package debug APK over Build 3.1.
+
+Same-package updates still need matching certificates. Ordinary CI debug keys
+can change; retain the certificate report. Stop on mismatch; never uninstall or
+clear any app's data to bypass it. Each app's journal would be erased. Artifacts
+expire after 14 days; **build-4-verification-reports** contains tests/lint/schemas.
+
+[Exact phone-only acceptance checklist](docs/BUILD_4_DEVICE_TEST.md) covers denial,
+revocation, browsers, My Files, subfolders, lock/overnight/reboot/force-stop,
+optional battery comparisons and redacted reporting. Use disposable material.
+CI success does not demonstrate Samsung wake coverage, power-loss durability or
+source-deletion safety. Independent review and owner device acceptance are pending.
+
+## Build and verification
+
+Retained toolchain: AGP 9.5.0, Gradle 9.8.2, JDK 21, Kotlin/Compose compiler 2.2.10,
+Compose BOM 2026.09.00, compile/target 37, min 26, Room 2.8.5/KSP2 2.3.4.
+WorkManager 2.12.0 (stable, min 24) is added only to the telemetry variant.
+Version code/name: 7 / 0.4.0, with `-telemetry` suffix for that APK.
 
 ```sh
-sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"
-./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+./gradlew --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process testDebugUnitTest testTelemetryUnitTest
+./gradlew --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process lintDebug lintTelemetry
+./gradlew --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process assembleDebug assembleTelemetry
 python3 -m unittest discover -s tools -p 'test_*.py'
 python3 tools/check_room_schema.py
+python3 tools/telemetry_apk.py app/build/outputs/apk/telemetry/app-telemetry.apk --output app/build/outputs/apk/telemetry/certificate.txt
 ```
 
-Set JAVA_HOME to JDK 21 and ANDROID_HOME to the SDK. The signing-script tests
-use disposable generated keys and the newly built APK; they never need owner
-credentials. The schema check expects schemas to be committed/staged and fails
-on generated drift or unversioned exports. Normal builds do not need secrets.
+Set JAVA_HOME to JDK 21 and ANDROID_HOME to an SDK with platform android-37.0 and
+build-tools 37.0.0. Separate invocations/bounded workers avoid cloud memory
+pressure. Signing tests use disposable generated credentials, never owner keys.
+Schema checks require reviewed exports to be versioned. CI validates wrapper,
+JVM variants, lint, both APKs, schemas, strict compiled package/gates and signing.
+Only the read-only telemetry APK is uploaded for owner testing.
 
-JVM tests include real fixture I/O, no-clobber link races, bounded SHA-256 copies,
-source/destination changes, injected failures and termination at each important
-boundary, Undo conflicts, idempotent recovery, actual generated Room DAO/native
-SQLite close/reopen tests, missing-migration failure, UI gate tests, and Build 2
-regressions. Fixture-only conditional removal is a closed-world contract model,
-**not an Android atomic-unlink implementation**. Throwing a simulated termination
-and reopening SQLite are not power-loss, device-reboot or Android 17 tests.
+| Build path | App ID suffix | MOVE/Undo | Synthetic copy | Telemetry |
+| --- | --- | --- | --- | --- |
+| Normal debug/release, not uploaded | none | disabled | disabled | disabled |
+| Owner read-only telemetry artifact | .telemetry | disabled | disabled | consent required |
+| Optional protected stable-signed telemetry | .telemetry | disabled | disabled | consent required |
 
-See [architecture](docs/ARCHITECTURE.md) for the exact state/evidence model,
-retained staging aliases, deletion race, durability limits and remaining gates.
-
-## Download the engineering APK (no local PC required)
-
-1. Sign into GitHub, open this repository → **Actions → Build debug APK**.
-2. Choose a successful run for the intended branch/commit. Download
-   **s26-download-organizer-build-3-1-engineering-debug** under **Artifacts**.
-3. Extract the ZIP in Samsung **My Files**, then tap `app-debug.apk`. Permit
-   installation from the opening app if Android prompts. Samsung Auto Blocker
-   or device policy may require reviewing **Settings → Security and privacy**.
-4. Launch and verify **Build 3.1 · Engineering**, the disabled-mutation explanation,
-   and the preserved Downloads setup/inventory. Artifacts expire after 14 days.
-   Reports and exported schema are in **build-3-1-verification-reports**.
-
-Ordinary PR/push artifacts use an ephemeral Android debug key. They are explicitly
-engineering-only. A differently signed APK may not update an installed Build 2.
-Build 2 has no operation journal, but **do not blindly uninstall an installed
-Build 3 or clear its data**: this deletes its recovery journal. Only transition
-from an empty engineering journal after checking it and retaining any necessary
-records. Once journaled user operations are enabled in a future audited build,
-updates must preserve signature and application data.
+The main journal schemas 1/2 and migration remain unchanged; a separate exported
+telemetry schema 1 avoids PR #4's schema 3. Future versions require explicit
+non-destructive migrations. Tests use disposable fixtures/native SQLite, not the
+owner's Downloads. The test-only filesystem writers are never packaged.
 
 ## Stable development signing and journal retention
+
+This branch's optional protected job signs only the telemetry package. It does not repair or replace the installed main app's certificate. No key setup is required for the first telemetry install. A future main-app signing transition needs a separate owner-reviewed continuity plan.
 
 No keystore, password or private key belongs in Git. The optional workflow path
 is implemented but has not been run with owner credentials. It still creates a
@@ -133,7 +134,7 @@ Codespace can be used without a local PC):
    other refs cannot run this signing job. The ordinary verification job must pass.
 5. CI decodes private material only in runner temporary storage, re-signs the
    engineering APK, verifies the exact pinned certificate, removes temporary
-   credentials and uploads **s26-download-organizer-build-3-1-stable-signed-engineering**
+   credentials and uploads **s26-build-4-stable-signed-readonly-telemetry**
    with a public `certificate.txt` report. Missing credentials or a pin mismatch
    fail that job; it does not present the ephemeral APK as stable-signed. The
    script also refuses PR/non-main CI contexts and APKs without the compiled
@@ -153,65 +154,15 @@ Future schema changes must bump the DB version, retain old schemas, add/test
 explicit versioned migrations, and preserve records.
 Missing migrations fail closed; there is no destructive migration fallback.
 
-## Current S26 Ultra acceptance checklist (read-only engineering build)
+## Architecture and next milestones
 
-1. Record the commit and Android/One UI version. Install only after resolving the
-   signature/journal-retention guidance above. Confirm the engineering banner.
-2. With All Files Access denied, confirm setup and no inventory. Open Settings,
-   cancel, return, then grant and return: confirm real primary Downloads entries.
-3. Compare names, types, extensions, sizes, dates, count, hidden/Unicode names,
-   zero-byte files and newest-first order with My Files. Subfolders/link targets
-   must not be enumerated. Test Refresh, large-list scrolling, rotation, fonts
-   and light/dark mode. Revoke access and confirm the old inventory disappears.
-4. Review an eligible file. Check its source, Other/ target and finished-download
-   warning. Confirm must remain disabled even after checking the box. Cancel.
-   Folders, symlinks and known in-progress names must not offer this action.
-5. Check history/recovery. A fresh install should show an empty journal; denial
-   must defer recovery. Relaunch/force-stop/restart the device to check launch
-   behavior, but do not interpret an empty-journal restart as operation recovery proof.
-6. Confirm no Organized/ folder or partial output is created and no Downloads
-   entry changes name, content, size or modification date. Do not remove personal
-   files merely to test failure states. Do not attempt real move/Undo tests yet.
-7. Report results to KroflaFPS/Ada/Jinx. Independent audit and all Build 3 hardware
-   mutation/crash/durability acceptance remain pending.
+[Build 4 architecture, official references and exact PR #4 integration plan](docs/BUILD_4_ARCHITECTURE.md)
+describe lifecycle rearming, bounds, leases, retention and unresolved platform
+risks. [Core architecture](docs/ARCHITECTURE.md) retains the journal/no-overwrite
+safety model. [Roadmap](docs/ROADMAP.md) and [changelog](docs/CHANGELOG.md) distinguish
+implemented telemetry from later classification, routing, mutation and automation.
+The [Android storage review](docs/ANDROID_STORAGE_REVIEW.md) still applies:
+readiness cannot repair conditional-deletion races. No source deletion is enabled.
 
-Future operational acceptance additionally requires stable signing approval,
-review of Android root/descriptor/no-clobber semantics, safe copy-only behavior
-when deletion cannot be proven, persistent journal restart tests, idempotent
-recovery, Undo conflicts, interrupted I/O and controlled process termination on
-**disposable** device files. Power-loss testing and sudden-loss guarantees are
-not claimed. No release gate may be bypassed just to enable a button.
-
-## Roadmap and collaboration
-
-Builds 4–7 retain readiness verification, local classification, hybrid background
-automation, routing customization, notifications and UI refinement. Build 3
-blockers must be resolved explicitly; Build 4 readiness alone cannot fix deletion
-TOCTOU races. No four-tab redesign, empty category grids, services or workers
-were added. Media indexing is deferred while operations are disabled; future
-index refresh must not be confused with movement or browser download history.
-
-- [Architecture and safety boundaries](docs/ARCHITECTURE.md)
-- [Roadmap and incomplete release gates](docs/ROADMAP.md)
-- [Changelog and verification](docs/CHANGELOG.md)
-
-KroflaFPS owns the project and device testing; Ada (ChatGPT) leads architecture;
-Jinx (Gemini) independently audits; Codex implements. No independent audit is claimed.
-
-## Build 3.1 release matrix and remaining experiments
-
-| Build path | Signing | File mutation | Suitable use |
-| --- | --- | --- | --- |
-| PR, feature push, ordinary main/manual | Ephemeral debug | Disabled | Launch, inventory, UI regression |
-| Protected manual main with provisioned credentials | Pinned stable certificate | Disabled | Same; verify supported in-place upgrades |
-| JVM fixtures | Disposable private directories only | Test-only | Failure and concurrency models; never shipped |
-
-No APK is approved for disposable-file move/copy/Undo operational experiments.
-The adapter cannot publish or remove a file. Signing does not change these gates.
-The protected environment's actual owner-approval/branch rules and credentials
-have not been provisioned or independently verified in this assignment.
-
-See [Android storage review](docs/ANDROID_STORAGE_REVIEW.md) for public API
-findings, outstanding severity and the exact device experiments required before
-any independently reviewed operational build. The read-only checklist above is
-safe for this APK. Keep PR #3 open for Ada/Jinx review; Builds 4–7 are untouched.
+KroflaFPS owns device testing; Ada leads architecture; Jinx independently audits;
+Codex implements. Keep the separate Build 4 PR draft and unmerged pending review.

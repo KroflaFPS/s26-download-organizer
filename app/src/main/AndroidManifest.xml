@@ -13,6 +13,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.S26DownloadOrganizer">
         <meta-data android:name="com.kroflafps.s26downloadorganizer.MUTATIONS_ENABLED" android:value="false" />
+        <meta-data android:name="com.kroflafps.s26downloadorganizer.DIAGNOSTIC_COPY_ENABLED" android:value="false" />
+        <meta-data android:name="com.kroflafps.s26downloadorganizer.TELEMETRY_ENABLED" android:value="${telemetryEnabled}" />
         <!-- Single process only; do not package Room's unused invalidation service. -->
         <service android:name="androidx.room.MultiInstanceInvalidationService" tools:node="remove" />
         <activity

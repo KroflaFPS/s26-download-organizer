@@ -67,10 +67,16 @@ are implemented; device acceptance and published CI evidence are tracked separat
 JVM success does not complete hardware crash/durability gates. The shipping
 Build 3.1 engineering APK preserves read-only Downloads and cannot modify user files.
 
-## 4. File readiness verification
+## 4. Read-only readiness and trigger telemetry — Build 4
 
-- [ ] Conservatively defer temporary and unstable downloads.
-- [ ] Combine repeated observations with available completion evidence.
+- [x] Pure negative/unknown/quiescence/provider-publication evidence labels; every result denies mutation authorization.
+- [x] Isolated telemetry package with explicit consent, native one-shot content triggers, unique ~2h WorkManager reconciliation and boot/package registration restoration.
+- [x] Durable fenced bounded metadata pages/subfolders; no root-mtime-only gate; incomplete coverage visible.
+- [x] Separate telemetry DB/schema 1, bounded retention, aggregate redacted Markdown clipboard/sharesheet and working manual controls.
+- [x] Preserve main journal v2, original package, read-only inventory and disabled MOVE/Undo/copy gates; PR #4 untouched.
+- [ ] Independent audit and S26 trigger/readiness coverage acceptance under One UI/Doze, permissions, reboot and process death.
+- [ ] Integrate PR #4 only after owner decision and the documented source-set/schema/gate review.
+- [ ] Establish writer-closure/content/readiness guarantees appropriate to an eventual operation; metadata quietness is insufficient.
 - [ ] Revalidate readiness and source identity immediately before a move.
 - [ ] Test changing files, delayed writes, renames, and interrupted downloads.
 
@@ -84,7 +90,8 @@ Build 3.1 engineering APK preserves read-only Downloads and cannot modify user f
 ## 6. Hybrid background automation
 
 - [ ] Add opportunistic FileObserver/event detection where supported.
-- [ ] Add bounded WorkManager reconciliation for missed events and interruptions.
+- [x] Isolated read-only WorkManager reconciliation instrument in Build 4 (not production automation).
+- [ ] Integrate audited production candidate reconciliation for missed events and interruptions.
 - [ ] Deduplicate candidates and respect permission/background execution constraints.
 - [ ] Combine readiness, classification, routing, and journaled operations.
 - [ ] Validate Samsung/Android 17 behavior without a permanent dataSync service.
@@ -96,3 +103,14 @@ Build 3.1 engineering APK preserves read-only Downloads and cannot modify user f
 - [ ] Add grouped notification batches and permission handling.
 - [ ] Expose persistent individual activity history and Undo in the dashboard.
 - [ ] Refine accessibility, status/error presentation, and owner-tested workflows.
+
+## Separate Build 3.2 status and remaining gates
+
+PR #4 is draft/unmerged and not part of this branch. Owner reports successful
+standalone synthetic-fixture installation/copies, originals retained, collisions,
+journal/recovery and permission denial on the S26 Ultra. These scoped reports do
+not approve arbitrary copying, deletion, universal durability or background coverage.
+Build 4 is telemetry only. All Build 3 signing/deletion release gates remain open.
+See [integration plan](BUILD_4_ARCHITECTURE.md#build-matrix-signing-and-integration-with-pr-4)
+and [device checks](BUILD_4_DEVICE_TEST.md). No Build 5–7 classification, routing,
+notifications, permanent service or mutation automation is implemented.

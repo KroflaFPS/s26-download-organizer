@@ -11,6 +11,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ARCHITECTURE.md` specifying modules, Android permissions, and team roles.
 - `ROADMAP.md` tracking planned milestones.
 
+### Build 4 targeted Ada audit repairs (2026-11-03)
+
+- Repair B4-01 on the existing draft PR #6, starting at `0629888`; no branch
+  switch/reset/rebase, PR #4 modification, signing setup or feature build.
+- Withdraw the unsafe same-ID-before-jobFinished rearm claim. Reserve fresh
+  native IDs durably before scheduling, outside WorkManager's range, and avoid
+  replacing any still-running/unacknowledged ID. Preserve legacy registrations,
+  component-scoped pause, stale callback handling and fail-closed allocation.
+- Correct stop-during-rearm and duplicate-finish state transitions. Two new
+  lifecycle regressions failed against the audit baseline before repair.
+- Reproduce B4-02 with WorkManager 2.12 KEEP, a held RUNNING worker future and the
+  real telemetry DAO/coordinator. Retain KEEP and document the delayed-drain
+  limitation: dirty state survives, but may wait for later signal/manual/inexact
+  ~2h periodic work plus OS deferral; no maximum latency is promised.
+- Add registration/reservation/concurrency/permission regression coverage,
+  queue-saturation coverage and scanner-error redaction assertions. No scanner,
+  schema, manifest, dependency, feature-gate or credential changes.
+- Update architecture and mandatory phone-only repeated-callback/root/nested/
+  stop/revoke/reboot/export checks. **OWNER DEVICE ACCEPTANCE AND INDEPENDENT ADA
+  RE-AUDIT PENDING.** JVM/Robolectric do not prove live Android/FUSE behavior.
+- Add a telemetry-only unavailable-primary-volume guard: platform access-check
+  exceptions deny reads/registration rather than escaping the service/UI path.
+  The original main storage adapter remains unchanged.
+- Local repaired-head verification: 95 normal + 122 telemetry JVM executions,
+  zero failures/errors/skips; lint zero errors, 5 normal/8 telemetry advisory
+  warnings. Fresh APK/signing/schema/CI evidence is recorded in the PR handoff.
+
+### Build 4 — Read-only Ghost Bot/readiness telemetry (2026-11-03)
+
+- Carry forward the uncommitted Build 4 work on `feat/build-4-readonly-telemetry`,
+  based on Build 3.1 main `08ddded`. Fetch/read-only inspection confirmed main's
+  later skill-only merge `354000e`; `.agents/skills/karpathy-guidelines/SKILL.md`
+  was explicitly read from origin/main, not natively discovered or modified.
+- Add the independently installable `telemetry` build type, package
+  `com.kroflafps.s26downloadorganizer.telemetry`, S26 Read-Only Telemetry label,
+  versionCode 7 / 0.4.0-telemetry. Preserve normal application identity and legacy
+  journal v2. Generic mutation and diagnostic copy remain false in every APK.
+- Add opt-in one-shot Downloads/Files descendant content triggers, completion-time
+  rearming with registration tokens, stop cancellation, unique inexact ~2h
+  reconciliation and consent-aware boot/package restoration. WorkManager 2.12.0
+  is telemetry-only; no foreground service/notification/exemption/network access.
+- Add metadata-only bounded no-follow directory pages, lexical cursors, durable
+  dirty generations/boot-aware lease fencing, explicit limited coverage and
+  unreadable-directory fairness. No file content scanning/hashing or user writes.
+- Add pure readiness evidence states with temporary/pending/change negatives,
+  separated quiet samples, clock/boot handling and zero-byte ambiguity. Every
+  state denies mutation authorization; no footer parser or closure claim.
+- Add a separate Room telemetry schema 1, bounded events/observations, local
+  status and functional enable/pause/manual/registration controls, redacted
+  Markdown clipboard and optional sharesheet. Default exports omit private
+  names/paths/full URIs and label mtime timing as a heuristic.
+- Add readiness, scheduling/lifecycle, coordinator/checkpoint/lease/reopen,
+  retention/schema-failure, permission/cancellation, pagination and export tests.
+  Preserve all Build 1–3.1 tests; extend actual merged-manifest and APK guards.
+- Extend CI to verify both variants and upload only the read-only telemetry APK
+  plus public package/certificate report. Preserve protected manual/main signing
+  and fail-closed credential/pin checks; no owner credentials requested/created.
+- Add architecture/reference/integration notes and phone-only acceptance steps.
+  PR #4 remains draft/unmodified. Record Build 3.2 device results as owner-reported
+  synthetic-copy checks, not independent certification. Build 4 device acceptance
+  remains pending. Local JVM verification: 95 normal + 111 telemetry executions,
+  zero failures/errors/skips. Both lint variants pass with zero errors (5 normal,
+  7 telemetry advisory warnings). Schema and actionlint checks pass. Final APK,
+  signing and published CI evidence are reported in the Build 4 draft PR.
+
 ### Build 1 — Foundation and cloud CI/CD (2026-11-02)
 - One Android application module for `com.kroflafps.s26downloadorganizer`, using
   Gradle Kotlin DSL, a version catalog, and the complete checksum-pinned wrapper.

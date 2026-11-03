@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">S26 Read-Only Telemetry</string>
+    <string name="build_identifier">Build 4 · Read-only telemetry experiment</string>
+    <string name="foundation_description">READ-ONLY EXPERIMENT: No organizing, moving, copying or deleting. Separate app and private telemetry log. Background signals and readiness evidence are measurements, never authorization to change files.</string>
+    <string name="development_notice">Build 4 telemetry · No diagnostic-copy capability</string>
+    <string name="permission_navigation">Allow All Files Access specifically for S26 Read-Only Telemetry. This permission is separate from Build 3.1 and the Build 3.2 diagnostic. Return here to recheck access.</string>
+    <string name="settings_unavailable">Open Settings → Special app access → All files access, then choose S26 Read-Only Telemetry. Return here to check access again.</string>
+</resources>
