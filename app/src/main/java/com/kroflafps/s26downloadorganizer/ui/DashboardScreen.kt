@@ -46,6 +46,8 @@ fun DashboardScreen(
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
     operations: OperationsScreenState,
+    onToggleAutoSort: (Boolean) -> Unit,
+    onSortNow: () -> Unit,
     onReviewMove: (InventoryEntry) -> Unit,
     onReviewUndo: (OperationHistoryEntry) -> Unit,
     onRecovery: () -> Unit,
@@ -137,7 +139,15 @@ fun DashboardScreen(
                     }
                 }
             }
-            item(key = "operations-header") { OperationsHeader(operations, onRecovery) }
+            item(key = "operations-header") {
+                OperationsHeader(
+                    state = operations,
+                    canSort = state is InventoryScreenState.Loaded,
+                    onToggleAutoSort = onToggleAutoSort,
+                    onSortNow = onSortNow,
+                    onRecovery = onRecovery,
+                )
+            }
             items(operations.history, key = { "operation-${it.record.id}" }) { item ->
                 OperationHistoryRow(item, operations.busy, onReviewUndo)
             }
@@ -181,7 +191,7 @@ private fun InventoryRow(entry: InventoryEntry, busy: Boolean, onReview: (Invent
                 }
                 Text(stringResource(R.string.modified_value, modified ?: unknown))
                 if (entry.type == EntryType.FILE && entry.sizeBytes != null && entry.modifiedAtMillis != null && OperationPolicy.eligibleName(entry.name)) {
-                    Button(onClick = { onReview(entry) }, enabled = !busy) { Text("Review move") }
+                    Button(onClick = { onReview(entry) }, enabled = !busy) { Text("Move") }
                 }
             }
         }

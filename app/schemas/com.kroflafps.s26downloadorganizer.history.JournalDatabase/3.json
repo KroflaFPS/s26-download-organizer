@@ -1,0 +1,334 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "c239c4743c38f45b1efb2ca2b50fab82",
+    "entities": [
+      {
+        "tableName": "operations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `type` TEXT NOT NULL, `relatedId` TEXT, `sourcePath` TEXT NOT NULL, `destinationDirectory` TEXT NOT NULL, `originalName` TEXT NOT NULL, `sourceIdentity` TEXT NOT NULL, `sourceSize` INTEGER NOT NULL, `sourceStamp` TEXT NOT NULL, `contentHash` TEXT NOT NULL, `sourceToken` TEXT, `stagingPath` TEXT NOT NULL, `destinationPath` TEXT, `stagingIdentity` TEXT, `destinationIdentity` TEXT, `destinationStamp` TEXT, `bytesCopied` INTEGER NOT NULL, `destinationVerified` INTEGER NOT NULL, `destinationPublished` INTEGER NOT NULL, `destinationSynced` INTEGER NOT NULL, `removalAuthorized` INTEGER NOT NULL, `sourceRemoved` INTEGER NOT NULL, `sourceRemovalSynced` INTEGER NOT NULL, `removalEvidence` TEXT, `phase` TEXT NOT NULL, `error` TEXT, `recoveryNeeded` INTEGER NOT NULL, `startedAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `completedAt` INTEGER, `revision` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "record.id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.relatedId",
+            "columnName": "relatedId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "record.sourcePath",
+            "columnName": "sourcePath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.destinationDirectory",
+            "columnName": "destinationDirectory",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.originalName",
+            "columnName": "originalName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.sourceIdentity",
+            "columnName": "sourceIdentity",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.sourceSize",
+            "columnName": "sourceSize",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.sourceStamp",
+            "columnName": "sourceStamp",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.contentHash",
+            "columnName": "contentHash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.sourceToken",
+            "columnName": "sourceToken",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "record.stagingPath",
+            "columnName": "stagingPath",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.destinationPath",
+            "columnName": "destinationPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "record.stagingIdentity",
+            "columnName": "stagingIdentity",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "record.destinationIdentity",
+            "columnName": "destinationIdentity",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "record.destinationStamp",
+            "columnName": "destinationStamp",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "record.bytesCopied",
+            "columnName": "bytesCopied",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.destinationVerified",
+            "columnName": "destinationVerified",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.destinationPublished",
+            "columnName": "destinationPublished",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.destinationSynced",
+            "columnName": "destinationSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.removalAuthorized",
+            "columnName": "removalAuthorized",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.sourceRemoved",
+            "columnName": "sourceRemoved",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.sourceRemovalSynced",
+            "columnName": "sourceRemovalSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.removalEvidence",
+            "columnName": "removalEvidence",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "record.phase",
+            "columnName": "phase",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.error",
+            "columnName": "error",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "record.recoveryNeeded",
+            "columnName": "recoveryNeeded",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.startedAt",
+            "columnName": "startedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "record.completedAt",
+            "columnName": "completedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "record.revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_operations_sourceToken",
+            "unique": true,
+            "columnNames": [
+              "sourceToken"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_operations_sourceToken` ON `${TABLE_NAME}` (`sourceToken`)"
+          },
+          {
+            "name": "index_operations_relatedId",
+            "unique": true,
+            "columnNames": [
+              "relatedId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_operations_relatedId` ON `${TABLE_NAME}` (`relatedId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "operation_events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`operationId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `phase` TEXT NOT NULL, `at` INTEGER NOT NULL, `error` TEXT, PRIMARY KEY(`operationId`, `revision`))",
+        "fields": [
+          {
+            "fieldPath": "operationId",
+            "columnName": "operationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phase",
+            "columnName": "phase",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "at",
+            "columnName": "at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "error",
+            "columnName": "error",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "operationId",
+            "revision"
+          ]
+        }
+      },
+      {
+        "tableName": "recovery_cursor",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`slot` INTEGER NOT NULL, `lastId` TEXT, `ceilingId` TEXT, PRIMARY KEY(`slot`))",
+        "fields": [
+          {
+            "fieldPath": "slot",
+            "columnName": "slot",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastId",
+            "columnName": "lastId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ceilingId",
+            "columnName": "ceilingId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "slot"
+          ]
+        }
+      },
+      {
+        "tableName": "observed_candidates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`path` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `modifiedAtMillis` INTEGER NOT NULL, `firstStableAtMillis` INTEGER NOT NULL, `lastSeenAtMillis` INTEGER NOT NULL, PRIMARY KEY(`path`))",
+        "fields": [
+          {
+            "fieldPath": "path",
+            "columnName": "path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sizeBytes",
+            "columnName": "sizeBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modifiedAtMillis",
+            "columnName": "modifiedAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstStableAtMillis",
+            "columnName": "firstStableAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenAtMillis",
+            "columnName": "lastSeenAtMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "path"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c239c4743c38f45b1efb2ca2b50fab82')"
+    ]
+  }
+}

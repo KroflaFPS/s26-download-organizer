@@ -55,10 +55,9 @@ class OperationCoordinatorTest {
 
     @Test fun shippingSafetyGateStopsBeforeAnyFileOrJournalMutation() = runBlocking {
         val files = files(); val journal = MemoryJournal(); val original = source(files)
-        assertFalse(OperationPolicy.MUTATIONS_ENABLED)
-        assertTrue(OperationCoordinator(files, journal).move(id(), original.toString(), true) is OperationResult.Blocked)
+        assertTrue(OperationCoordinator(files, journal, authorized = { false }).move(id(), original.toString(), true) is OperationResult.Blocked)
         assertTrue(journal.records.isEmpty())
-        assertFalse(Files.exists(files.roots.other.parent))
+        assertFalse(Files.exists(files.roots.organized))
         assertTrue(Files.exists(original))
     }
 
@@ -85,7 +84,7 @@ class OperationCoordinatorTest {
     }
 
     @Test fun repeatedCollisionsNeverChangeExistingBytes() = runBlocking {
-        val files = files(); val journal = MemoryJournal(); files.ensureDestination(OperationType.MOVE)
+        val files = files(); val journal = MemoryJournal(); files.ensureDestination(files.roots.other)
         for (name in listOf("file.txt", "file (1).txt")) Files.write(files.roots.other.resolve(name), byteArrayOf(77))
         val original = source(files, "file.txt")
         val result = record(engine(files, journal).move(id(), original.toString(), true))
@@ -112,7 +111,7 @@ class OperationCoordinatorTest {
     }
 
     @Test fun exclusivePublicationPrimitiveIsSafeUnderConcurrentSameNameAttempts() = runBlocking {
-        val files = files(); files.ensureDestination(OperationType.MOVE)
+        val files = files(); files.ensureDestination(files.roots.other)
         val stage1 = files.roots.other.resolve(".s26-a.part").toString()
         val stage2 = files.roots.other.resolve(".s26-b.part").toString()
         val key1 = files.reserveStage(stage1); val key2 = files.reserveStage(stage2)

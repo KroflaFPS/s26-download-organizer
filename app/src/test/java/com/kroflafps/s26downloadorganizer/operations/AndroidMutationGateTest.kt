@@ -7,12 +7,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AndroidMutationGateTest {
-    @Test fun grantingCoordinatorAuthorizationCannotEnableTheShippingAndroidAdapter() = runBlocking {
+    @Test fun invalidOrUntrustedPathsAreRejectedBeforeJournalOrFileMutation() = runBlocking {
         val files = AndroidOperationFiles()
         val journal = MemoryJournal()
-        assertFalse(files.canConditionallyRemove)
+        assertTrue(files.canConditionallyRemove)
         val result = OperationCoordinator(files, journal, { true }).move(UUID.randomUUID().toString(), "/not-a-real-source/file", true)
-        assertEquals(OperationResult.Rejected(OperationError.UNTRUSTED_EVIDENCE), result)
+        assertTrue(result is OperationResult.Rejected)
         assertTrue(journal.records.isEmpty())
     }
 }

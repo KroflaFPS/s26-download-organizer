@@ -19,8 +19,8 @@ android {
         applicationId = "com.kroflafps.s26downloadorganizer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     buildFeatures {
@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.work.runtime.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -57,6 +58,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.work.testing)
 }
 
 androidComponents.onVariants(androidComponents.selector().withBuildType("debug")) { variant ->
@@ -72,8 +74,8 @@ androidComponents.onVariants(androidComponents.selector().withBuildType("debug")
 val sourceManifest = layout.projectDirectory.file("src/main/AndroidManifest.xml")
 tasks.withType<Test>().configureEach {
     inputs.file(sourceManifest).withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.file(layout.projectDirectory.file("schemas/com.kroflafps.s26downloadorganizer.history.JournalDatabase/2.json"))
-    systemProperty("s26.schema", layout.projectDirectory.file("schemas/com.kroflafps.s26downloadorganizer.history.JournalDatabase/2.json").asFile.absolutePath)
+    inputs.file(layout.projectDirectory.file("schemas/com.kroflafps.s26downloadorganizer.history.JournalDatabase/3.json"))
+    systemProperty("s26.schema", layout.projectDirectory.file("schemas/com.kroflafps.s26downloadorganizer.history.JournalDatabase/3.json").asFile.absolutePath)
     systemProperty("s26.sourceManifest", sourceManifest.asFile.absolutePath)
     systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
 }

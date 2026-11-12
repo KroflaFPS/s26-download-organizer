@@ -6,15 +6,14 @@ import java.nio.file.Paths
 import java.util.Locale
 
 object OperationPolicy {
-    // Deliberate compile-time safety gate. Signing alone must NEVER enable mutations.
-    const val MUTATIONS_ENABLED = false
-    const val GATE_REASON = "Engineering build: file changes are disabled. Stable signing/journal retention and an audited Android storage adapter are required."
+    const val MUTATIONS_ENABLED = true
+    const val GATE_REASON = "File operations are paused or storage access is missing."
 
     fun eligibleName(name: String): Boolean {
         if (name.isEmpty() || name == "." || name == ".." || '/' in name || '\u0000' in name) return false
         val lower = name.lowercase(Locale.ROOT)
         return listOf(".part", ".partial", ".crdownload", ".download", ".tmp", ".temp", ".opdownload", ".filepart")
-            .none(lower::endsWith) && !lower.startsWith(".pending-")
+            .none(lower::endsWith) && !lower.startsWith(".pending-") && !lower.startsWith(".s26-")
     }
 
     fun sourcePath(raw: String, root: Path): Path {
@@ -22,6 +21,21 @@ object OperationPolicy {
             throw OperationFailure(OperationError.INVALID_REQUEST)
         }
         if (!path.isAbsolute || path != path.normalize() || path.parent != root.toAbsolutePath().normalize() ||
+            !eligibleName(path.fileName?.toString().orEmpty())) {
+            throw OperationFailure(OperationError.INVALID_REQUEST)
+        }
+        return path
+    }
+
+    fun undoSourcePath(raw: String, organizedRoot: Path): Path {
+        val path = try { Paths.get(raw) } catch (_: InvalidPathException) {
+            throw OperationFailure(OperationError.INVALID_REQUEST)
+        }
+        val org = organizedRoot.toAbsolutePath().normalize()
+        val parent = path.parent
+        val categoryName = parent?.fileName?.toString().orEmpty()
+        if (!path.isAbsolute || path != path.normalize() || parent == null || parent.parent != org ||
+            categoryName.isEmpty() || categoryName in listOf(".", "..") || categoryName.startsWith(".") ||
             !eligibleName(path.fileName?.toString().orEmpty())) {
             throw OperationFailure(OperationError.INVALID_REQUEST)
         }

@@ -1,5 +1,6 @@
 package com.kroflafps.s26downloadorganizer.operations
 
+import com.kroflafps.s26downloadorganizer.domain.FileCategory
 import java.nio.file.Path
 
 // No Android or Room types in the coordinator's model/ports.
@@ -67,19 +68,29 @@ sealed interface Observation {
 
 enum class Removal { REMOVED, UNSUPPORTED, CONFLICT }
 
-data class OperationRoots(val downloads: Path, val other: Path)
+data class OperationRoots(val downloads: Path, val organized: Path) {
+    val other: Path get() = categoryDirectory(FileCategory.OTHER)
+    fun categoryDirectory(category: FileCategory): Path = organized.resolve(category.folderName)
+    fun isOrganizedCategoryFile(path: Path): Boolean {
+        val normalized = path.toAbsolutePath().normalize()
+        val org = organized.toAbsolutePath().normalize()
+        val parent = normalized.parent ?: return false
+        if (parent.parent != org) return false
+        val categoryName = parent.fileName?.toString().orEmpty()
+        val fileName = normalized.fileName?.toString().orEmpty()
+        return categoryName.isNotEmpty() && categoryName !in listOf(".", "..") && !categoryName.startsWith(".") &&
+            fileName.isNotEmpty() && fileName !in listOf(".", "..")
+    }
+}
 
-/** An adapter must independently enforce approved roots, no-follow I/O and no-clobber writes.
- * Conditional removal MUST be atomic against replacement, not just stat-then-unlink.
- * The Android adapter deliberately supplies no mutation capability in Build 3.
- */
+/** An adapter must independently enforce approved roots, no-follow I/O and no-clobber writes. */
 interface OperationFiles {
     val roots: OperationRoots
     val canConditionallyRemove: Boolean
     fun isOccupied(path: String): Boolean
     fun requireWritableAccess()
     fun prepare(path: String, type: OperationType): FileEvidence
-    fun ensureDestination(type: OperationType)
+    fun ensureDestination(targetDirectory: Path)
     fun reserveStage(path: String): String
     fun copyAndSync(source: FileEvidence, stage: String, stageIdentity: String, checkpoint: () -> Unit): Long
     fun verify(path: String, identity: String): FileEvidence
@@ -87,6 +98,7 @@ interface OperationFiles {
     fun syncDirectory(path: String): Boolean
     fun removeConditionally(source: FileEvidence, destination: FileEvidence): Removal
     fun observe(path: String, maximumBytes: Long, checkpoint: () -> Unit = {}): Observation
+    fun cleanupStage(stage: String, stageIdentity: String) {}
 }
 
 interface OperationJournal {
@@ -159,7 +171,7 @@ internal fun OperationRecord.requireSuccessorOf(previous: OperationRecord) {
     require(previous.destinationIdentity == null || destinationIdentity == previous.destinationIdentity && destinationStamp == previous.destinationStamp)
     require(destinationPath == previous.destinationPath || previous.phase == Phase.COPY_VERIFIED && phase == Phase.COPY_VERIFIED)
     if (previous.stagingIdentity == null && stagingIdentity != null) require(previous.phase == Phase.ALLOCATING && phase == Phase.COPYING)
-    if (previous.destinationIdentity == null && destinationIdentity != null) require(previous.phase == Phase.COPY_VERIFIED && phase == Phase.DESTINATION_COMMITTED && destinationIdentity == stagingIdentity)
+    if (previous.destinationIdentity == null && destinationIdentity != null) require(previous.phase == Phase.COPY_VERIFIED && phase == Phase.DESTINATION_COMMITTED && destinationIdentity.isNotBlank())
     if (!previous.destinationVerified && destinationVerified) require(previous.phase == Phase.COPYING && phase == Phase.COPY_VERIFIED)
     if (!previous.destinationPublished && destinationPublished) require(previous.phase == Phase.COPY_VERIFIED && phase == Phase.DESTINATION_COMMITTED)
     if (!previous.destinationSynced && destinationSynced) require(previous.phase == Phase.COPY_VERIFIED && phase == Phase.DESTINATION_COMMITTED)

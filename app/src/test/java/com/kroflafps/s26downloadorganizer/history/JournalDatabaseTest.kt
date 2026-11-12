@@ -84,7 +84,7 @@ class JournalDatabaseTest {
         var database = JournalDatabase.open(context)
         val entry = record()
         assertTrue(database.journal().create(entry))
-        database.openHelper.writableDatabase.execSQL("PRAGMA user_version=3")
+        database.openHelper.writableDatabase.execSQL("PRAGMA user_version=4")
         database.close()
         database = JournalDatabase.open(context)
         try { database.journal().get(entry.id); fail("Missing downgrade migration must fail closed") }
@@ -250,6 +250,25 @@ class JournalDatabaseTest {
         assertEquals(original, dao.get(original.id)?.record)
         assertEquals(1, dao.events(original.id).size)
         assertEquals(Phase.COPYING, dao.events(original.id).single().phase)
+        database.close()
+    }
+
+    @Test fun migrationTwoToThreeCreatesCandidateTableWithoutLosingOperations() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var database = JournalDatabase.open(context)
+        val entry = record()
+        assertTrue(database.journal().create(entry))
+        val v2Schema = org.json.JSONObject(java.io.File(requireNotNull(System.getProperty("s26.schema"))).parentFile!!.resolve("2.json").readText()).getJSONObject("database")
+        val sql = database.openHelper.writableDatabase
+        sql.execSQL("DROP TABLE observed_candidates")
+        sql.execSQL("UPDATE room_master_table SET identity_hash=? WHERE id=42", arrayOf(v2Schema.getString("identityHash")))
+        sql.execSQL("PRAGMA user_version=2")
+        database.close()
+        database = JournalDatabase.open(context)
+        assertEquals(entry, database.journal().get(entry.id)?.record)
+        val candidate = ObservedCandidate("/fixture/Download/doc.pdf", 1024L, 100L, 200L, 200L)
+        database.journal().upsertCandidate(candidate)
+        assertEquals(candidate, database.journal().getCandidate(candidate.path))
         database.close()
     }
 

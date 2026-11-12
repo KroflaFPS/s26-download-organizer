@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       stable_signing:
-        description: 'Produce a stable-signed engineering APK (mutations stay disabled)'
+        description: 'Produce a stable-signed Build 4 APK'
         type: boolean
         required: false
         default: false
@@ -62,7 +62,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: s26-download-organizer-build-3-1-engineering-debug
+          name: s26-download-organizer-build-4-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -71,7 +71,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: build-3-1-verification-reports
+          name: build-4-verification-reports
           path: |
             app/build/reports/tests/testDebugUnitTest/
             app/build/test-results/testDebugUnitTest/
@@ -81,7 +81,7 @@ jobs:
           retention-days: 14
 
   stable-signing:
-    name: Stable-sign engineering APK (mutations disabled)
+    name: Stable-sign Build 4 APK
     if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.stable_signing }}
     needs: build
     runs-on: ubuntu-24.04
@@ -101,10 +101,10 @@ jobs:
           cmdline-tools-version: '16111833'
           packages: 'build-tools;37.0.0'
           log-accepted-android-sdk-licenses: false
-      - name: Download this run's engineering APK
+      - name: Download this run's debug APK
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
-          name: s26-download-organizer-build-3-1-engineering-debug
+          name: s26-download-organizer-build-4-debug
           path: unsigned-input
       - name: Sign and verify pinned certificate
         env:
@@ -114,10 +114,10 @@ jobs:
           S26_DEV_KEY_PASSWORD: ${{ secrets.S26_DEV_KEY_PASSWORD }}
           S26_DEV_CERT_SHA256: ${{ secrets.S26_DEV_CERT_SHA256 }}
         run: python3 tools/sign_engineering_apk.py
-      - name: Upload stable-signed engineering APK and public certificate report
+      - name: Upload stable-signed APK and public certificate report
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: s26-download-organizer-build-3-1-stable-signed-engineering
+          name: s26-download-organizer-build-4-stable-signed
           path: ${{ runner.temp }}/s26-signed-output/
           if-no-files-found: error
           retention-days: 14
