@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">S26 Download Organizer</string>
-    <string name="build_identifier">Build 4 · Auto-Organizer</string>
+    <string name="build_identifier">Build 4 · v0.4.1</string>
     <string name="foundation_status">Background sorting active</string>
     <string name="foundation_description">Automatically classifies downloaded files and sorts them into Organized/Installers, Documents, Images, Audio, Videos, Archives, and Other in the background.</string>
     <string name="development_notice">Runs locally on-device with a persistent recovery journal and Undo support</string>

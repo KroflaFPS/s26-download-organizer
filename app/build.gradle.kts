@@ -19,8 +19,20 @@ android {
         applicationId = "com.kroflafps.s26downloadorganizer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 5
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.4.1"
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            val persistentDebugKeystore = file("${System.getProperty("user.home")}/.gemini/s26-debug.keystore")
+            if (persistentDebugKeystore.isFile) {
+                storeFile = persistentDebugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildFeatures {

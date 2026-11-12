@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Folder tab & body inside 66dp safe zone (21..87) -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M29,34 L45,34 L50,39 L79,39 C81.2,39 83,40.8 83,43 L83,46 L25,46 L25,38 C25,35.8 26.8,34 29,34 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M25,42 L83,42 L83,72 C83,75.3 80.3,78 77,78 L31,78 C27.7,78 25,75.3 25,72 Z" />
+    <!-- Download arrow inside folder -->
+    <path
+        android:fillColor="#2563EB"
+        android:pathData="M51,47 L57,47 L57,57 L63,57 L54,67 L45,57 L51,57 Z" />
+    <!-- Tray bar -->
+    <path
+        android:fillColor="#0D9488"
+        android:pathData="M43,70 L65,70 C66.1,70 67,70.9 67,72 C67,73.1 66.1,74 65,74 L43,74 C41.9,74 41,73.1 41,72 C41,70.9 41.9,70 43,70 Z" />
+    <!-- Category sort dots -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M34,51 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+    <path
+        android:fillColor="#2DD4BF"
+        android:pathData="M34,59 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+    <path
+        android:fillColor="#818CF8"
+        android:pathData="M34,67 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+</vector>
