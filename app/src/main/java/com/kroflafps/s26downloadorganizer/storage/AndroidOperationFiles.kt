@@ -157,7 +157,7 @@ class AndroidOperationFiles private constructor(
         if (!stageAttrs.isRegularFile || stageAttrs.isSymbolicLink || statIdentity(stagePath) != stageIdentity || stageAttrs.size() != 0L) {
             throw OperationFailure(OperationError.CONFLICT)
         }
-        if (Files.getFileStore(stagePath).usableSpace < source.size) {
+        if (availableBytes(stagePath.parent) < source.size) {
             throw IOException("Insufficient storage space")
         }
         var count = 0L
