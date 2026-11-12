@@ -126,7 +126,10 @@ class OperationsViewModel(
                     "Sorted ${summary.movedCount} file(s): $details.$suffix"
                 }
                 summary.settlingCount > 0 -> "No files ready yet (${summary.settlingCount} still settling after download)."
-                summary.failedCount > 0 -> "${summary.failedCount} file(s) could not be moved safely. Review history."
+                summary.failedCount > 0 -> {
+                    val detail = summary.lastFailureDetail?.let { " ($it)" }.orEmpty()
+                    "${summary.failedCount} file(s) could not be moved safely. Review history.$detail"
+                }
                 else -> "Downloads is already organized."
             }
             mutable.value = mutable.value.copy(message = message)

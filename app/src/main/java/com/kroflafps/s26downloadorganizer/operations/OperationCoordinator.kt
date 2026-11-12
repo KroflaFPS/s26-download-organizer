@@ -24,6 +24,9 @@ class OperationCoordinator(
     private val operationMutex: Mutex = Mutex(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    @Volatile
+    var lastFailureDetail: String? = null
+        private set
 
     suspend fun move(
         id: String,
@@ -239,6 +242,8 @@ class OperationCoordinator(
             checkpoint(Checkpoint.COMPLETED)
             return OperationResult.Recorded(requireNotNull(current))
         } catch (failure: Exception) {
+            val detail = "${current?.phase ?: "PRE"}: ${failure::class.simpleName}: ${failure.message ?: ""}".trim()
+            lastFailureDetail = detail
             if (!stored) {
                 if (failure is CancellationException) throw failure
                 if (journalCall) return OperationResult.JournalUnavailable(id)

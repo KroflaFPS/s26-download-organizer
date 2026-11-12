@@ -20,6 +20,7 @@ data class AutoSortSummary(
     val settlingCount: Int = 0,
     val failedCount: Int = 0,
     val skippedReason: String? = null,
+    val lastFailureDetail: String? = null,
 )
 
 class AutoSortEngine(
@@ -55,6 +56,7 @@ class AutoSortEngine(
         val movedCounts = linkedMapOf<FileCategory, Int>()
         var movedCount = 0
         var failedCount = 0
+        var lastDetail: String? = null
 
         for (entry in candidates) {
             val category = classifyFile(Paths.get(entry.id))
@@ -75,6 +77,7 @@ class AutoSortEngine(
                         }
                     } else {
                         failedCount++
+                        lastDetail = coordinator.lastFailureDetail ?: "${result.record.phase}:${result.record.error}"
                     }
                 }
                 is OperationResult.Blocked -> {
@@ -84,11 +87,13 @@ class AutoSortEngine(
                         settlingCount = if (forceImmediate) 0 else evaluation.settlingCount,
                         failedCount = failedCount,
                         skippedReason = result.reason,
+                        lastFailureDetail = lastDetail,
                     )
                 }
                 is OperationResult.Rejected -> {
                     readiness.clear(entry.id)
                     failedCount++
+                    lastDetail = coordinator.lastFailureDetail ?: "Rejected:${result.error}"
                 }
                 is OperationResult.JournalUnavailable -> {
                     return@withLock AutoSortSummary(
@@ -97,6 +102,7 @@ class AutoSortEngine(
                         settlingCount = if (forceImmediate) 0 else evaluation.settlingCount,
                         failedCount = failedCount + 1,
                         skippedReason = "Operation journal unavailable.",
+                        lastFailureDetail = coordinator.lastFailureDetail,
                     )
                 }
             }
@@ -107,6 +113,7 @@ class AutoSortEngine(
             movedByCategory = movedCounts,
             settlingCount = if (forceImmediate) 0 else evaluation.settlingCount,
             failedCount = failedCount,
+            lastFailureDetail = lastDetail,
         )
         if (movedCount > 0) {
             onSummaryNotification(summary)
