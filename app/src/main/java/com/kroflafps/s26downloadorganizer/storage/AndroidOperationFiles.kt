@@ -2,6 +2,7 @@ package com.kroflafps.s26downloadorganizer.storage
 
 import android.os.Build
 import android.os.Environment
+import android.os.StatFs
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
@@ -297,5 +298,16 @@ class AndroidOperationFiles private constructor(
         val ino = (Files.getAttribute(path, "unix:ino", NOFOLLOW_LINKS) as? Number)?.toLong() ?: 0L
         require(ino > 0 && dev > 0) { "Invalid filesystem identity" }
         return "$dev:$ino"
+    }
+
+    private fun availableBytes(dir: Path): Long {
+        val vfs = runCatching {
+            val stat = Os.statvfs(dir.toString())
+            if (stat.f_frsize > 0L && stat.f_bavail > 0L) stat.f_bavail * stat.f_frsize else null
+        }.getOrNull()
+        if (vfs != null) return vfs
+        val store = runCatching { Files.getFileStore(dir).usableSpace }.getOrNull()
+        if (store != null) return store
+        return StatFs(dir.toString()).availableBytes
     }
 }
