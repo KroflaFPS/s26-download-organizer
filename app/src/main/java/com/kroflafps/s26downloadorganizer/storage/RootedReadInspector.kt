@@ -31,8 +31,10 @@ internal class RootedReadInspector(
     private val primary: Path,
     private val factory: ReadHandleFactory,
     private val canRead: () -> Boolean,
+    downloadsDirectory: Path = primary.resolve("Download"),
+    organizedDirectory: Path = primary.resolve("Organized"),
 ) {
-    val roots = OperationRoots(primary.resolve("Download"), primary.resolve("Organized/Other"))
+    val roots = OperationRoots(downloadsDirectory.toAbsolutePath().normalize(), organizedDirectory.toAbsolutePath().normalize())
 
     fun inspect(raw: String, maximumBytes: Long, checkpoint: () -> Unit = {}): Observation {
         require(maximumBytes >= 0)
@@ -42,8 +44,19 @@ internal class RootedReadInspector(
         }
         check()
         val path = Paths.get(raw)
-        if (!path.isAbsolute || path != path.normalize() || path.parent !in listOf(roots.downloads, roots.other) ||
+        val validLocation = path.parent == roots.downloads || roots.isOrganizedCategoryFile(path)
+        if (!path.isAbsolute || path != path.normalize() || !validLocation ||
             path.fileName.toString() in listOf("", ".", "..")) throw OperationFailure(OperationError.INVALID_REQUEST)
+        val normalizedPrimary = primary.toAbsolutePath().normalize()
+        val parentDir = path.parent
+        if (!parentDir.startsWith(normalizedPrimary) || parentDir == normalizedPrimary) {
+            throw OperationFailure(OperationError.INVALID_REQUEST)
+        }
+        val relativeParent = normalizedPrimary.relativize(parentDir)
+        val chain = (0 until relativeParent.nameCount).map { relativeParent.getName(it).toString() }
+        if (chain.isEmpty() || chain.any { it.isEmpty() || it in listOf(".", "..") }) {
+            throw OperationFailure(OperationError.INVALID_REQUEST)
+        }
         val handles = mutableListOf<ReadHandle>()
         try {
             val canonical = factory.canonicalPrimary(primary)
@@ -51,7 +64,6 @@ internal class RootedReadInspector(
             if (!root.metadata().directory || root.resolvedPath() != canonical) throw OperationFailure(OperationError.UNTRUSTED_EVIDENCE)
             var parent = root
             var expected = canonical
-            val chain = if (path.parent == roots.downloads) listOf("Download") else listOf("Organized", "Other")
             try {
                 for (name in chain) {
                     check()

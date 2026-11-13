@@ -55,7 +55,7 @@ class SigningTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 report = (Path(directory) / "s26-signed-output/certificate.txt").read_text()
                 self.assertIn(self.pin, report)
-                self.assertIn("MUTATIONS DISABLED", report)
+                self.assertIn("MUTATIONS ENABLED", report)
                 self.assertFalse(list(Path(directory).glob("s26-signing-*")))
 
     def test_missing_credentials_fail_without_fallback_output(self):
@@ -83,13 +83,15 @@ class SigningTests(unittest.TestCase):
                 self.assertIn("No PR signing", result.stderr)
                 self.assertFalse((Path(directory) / "s26-signed-output").exists())
 
-    def test_compiled_gate_marker_must_be_unique_and_boolean_false(self):
-        from sign_engineering_apk import mutations_disabled_in_xmltree, MARKER
+    def test_compiled_gate_marker_must_be_unique_and_boolean(self):
+        from sign_engineering_apk import mutations_marker_in_xmltree, MARKER
         disabled = '\n    E: meta-data (line=1)\n      A: android:name(0x01010003)="' + MARKER + '"\n      A: android:value(0x01010024)=(type 0x12)0x0\n'
-        self.assertTrue(mutations_disabled_in_xmltree(disabled))
-        self.assertFalse(mutations_disabled_in_xmltree(disabled.replace("0x0\n", "0xffffffff\n")))
-        self.assertFalse(mutations_disabled_in_xmltree(disabled + disabled))
-        self.assertFalse(mutations_disabled_in_xmltree(""))
+        enabled = disabled.replace("0x0\n", "0xffffffff\n")
+        self.assertIs(mutations_marker_in_xmltree(disabled), False)
+        self.assertIs(mutations_marker_in_xmltree(enabled), True)
+        self.assertIsNone(mutations_marker_in_xmltree(disabled.replace("(type 0x12)0x0", '(type 0x3)"true"')))
+        self.assertIsNone(mutations_marker_in_xmltree(disabled + disabled))
+        self.assertIsNone(mutations_marker_in_xmltree(""))
 
     def test_disposable_mutation_adapters_are_not_packaged(self):
         from zipfile import ZipFile

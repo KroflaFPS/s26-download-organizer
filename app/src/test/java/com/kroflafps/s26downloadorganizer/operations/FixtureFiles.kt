@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.withLock
  * Real no-clobber create/link, bounded copying, fsync, hashing and failure boundaries are exercised.
  */
 internal class FixtureFiles(private val privateRoot: Path, override val canConditionallyRemove: Boolean = true) : OperationFiles {
-    override val roots = OperationRoots(privateRoot.resolve("Download"), privateRoot.resolve("Organized/Other"))
+    override val roots = OperationRoots(privateRoot.resolve("Download"), privateRoot.resolve("Organized"))
     var access = true
     var writable = true
     var directorySync = true
@@ -38,7 +38,7 @@ internal class FixtureFiles(private val privateRoot: Path, override val canCondi
     private fun file(path: String): Path {
         val parsed = Paths.get(path)
         permitted(parsed)
-        if (parsed.parent != roots.downloads && parsed.parent != roots.other) throw OperationFailure(OperationError.INVALID_REQUEST)
+        if (parsed.parent != roots.downloads && !roots.isOrganizedCategoryFile(parsed)) throw OperationFailure(OperationError.INVALID_REQUEST)
         return parsed
     }
     override fun requireWritableAccess() {
@@ -48,7 +48,8 @@ internal class FixtureFiles(private val privateRoot: Path, override val canCondi
     override fun isOccupied(path: String): Boolean = Files.exists(file(path), NOFOLLOW_LINKS)
     override fun prepare(path: String, type: OperationType): FileEvidence {
         requireWritableAccess()
-        OperationPolicy.sourcePath(path, if (type == OperationType.MOVE) roots.downloads else roots.other)
+        if (type == OperationType.MOVE) OperationPolicy.sourcePath(path, roots.downloads)
+        else OperationPolicy.undoSourcePath(path, roots.organized)
         return evidence(path)
     }
     fun evidence(path: String, maximumBytes: Long = Long.MAX_VALUE, checkpoint: () -> Unit = {}): FileEvidence {
@@ -61,14 +62,16 @@ internal class FixtureFiles(private val privateRoot: Path, override val canCondi
         if (before.fileKey() != after.fileKey() || before.size() != after.size() || stamp != stamp(p)) throw OperationFailure(OperationError.SOURCE_CHANGED)
         return FileEvidence(p.toString(), requireNotNull(before.fileKey()).toString(), before.size(), stamp, hash)
     }
-    override fun ensureDestination(type: OperationType) {
+    override fun ensureDestination(targetDirectory: Path) {
         requireWritableAccess()
-        if (type == OperationType.UNDO) {
-            permitted(roots.downloads)
+        val normalized = targetDirectory.toAbsolutePath().normalize()
+        permitted(normalized)
+        if (normalized == roots.downloads) {
             if (!Files.isDirectory(roots.downloads, NOFOLLOW_LINKS)) throw OperationFailure(OperationError.INVALID_REQUEST)
             return
         }
-        for (directory in listOf(roots.other.parent, roots.other)) {
+        if (normalized.parent != roots.organized) throw OperationFailure(OperationError.INVALID_REQUEST)
+        for (directory in listOf(roots.organized, normalized)) {
             permitted(directory)
             try { Files.createDirectory(directory) } catch (_: FileAlreadyExistsException) { /* Validate, never replace. */ }
             if (!Files.isDirectory(directory, NOFOLLOW_LINKS) || Files.isSymbolicLink(directory)) throw OperationFailure(OperationError.CONFLICT)
@@ -139,6 +142,12 @@ internal class FixtureFiles(private val privateRoot: Path, override val canCondi
         else Observation.Present(evidence(path, maximumBytes, checkpoint))
     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
     } catch (_: Exception) { Observation.Unverifiable }
+    override fun cleanupStage(stage: String, stageIdentity: String) {
+        val p = file(stage)
+        if (Files.exists(p, NOFOLLOW_LINKS) && attrs(p).fileKey().toString() == stageIdentity) {
+            Files.deleteIfExists(p)
+        }
+    }
 
     companion object {
         private val locks = ConcurrentHashMap<String, Any>()

@@ -31,9 +31,12 @@ class ManifestContractTest {
         assertEquals(emptySet<String>(), names(document, "activity-alias"))
     }
 
-    @Test fun sourceOnlyDeclaresApprovedAllFilesPermissionAndNoBackgroundComponents() {
+    @Test fun sourceOnlyDeclaresApprovedPermissionsAndNoUnexpectedComponents() {
         val source = manifest("s26.sourceManifest")
-        assertEquals(setOf("android.permission.MANAGE_EXTERNAL_STORAGE"), names(source, "uses-permission"))
+        assertEquals(
+            setOf("android.permission.MANAGE_EXTERNAL_STORAGE", "android.permission.POST_NOTIFICATIONS"),
+            names(source, "uses-permission"),
+        )
         for (tag in listOf("uses-permission-sdk-23", "uses-permission-sdk-m", "receiver", "provider")) {
             assertEquals("Unexpected source $tag", 0, elements(source, tag).size)
         }
@@ -43,26 +46,54 @@ class ManifestContractTest {
         checkLauncher(source)
     }
 
-    @Test fun mergedManifestHasOnlyApprovedPermissionAndKnownAndroidxComponents() {
+    @Test fun mergedManifestHasOnlyApprovedPermissionsAndKnownAndroidxComponents() {
         val merged = manifest("s26.mergedManifest")
         assertEquals(
-            setOf("android.permission.MANAGE_EXTERNAL_STORAGE", "$applicationId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"),
+            setOf(
+                "android.permission.MANAGE_EXTERNAL_STORAGE",
+                "android.permission.POST_NOTIFICATIONS",
+                "android.permission.WAKE_LOCK",
+                "android.permission.ACCESS_NETWORK_STATE",
+                "android.permission.RECEIVE_BOOT_COMPLETED",
+                "android.permission.FOREGROUND_SERVICE",
+                "$applicationId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+            ),
             names(merged, "uses-permission"),
         )
-        for (tag in listOf("uses-permission-sdk-23", "uses-permission-sdk-m", "service")) {
+        for (tag in listOf("uses-permission-sdk-23", "uses-permission-sdk-m")) {
             assertEquals("Unexpected merged $tag", 0, elements(merged, tag).size)
         }
-        assertEquals(setOf("androidx.profileinstaller.ProfileInstallReceiver"), names(merged, "receiver"))
-        val receiver = elements(merged, "receiver").single()
-        assertEquals("android.permission.DUMP", receiver.getAttributeNS(android, "permission"))
+        assertEquals(
+            setOf(
+                "androidx.work.impl.background.systemjob.SystemJobService",
+                "androidx.work.impl.foreground.SystemForegroundService",
+            ),
+            names(merged, "service"),
+        )
+        assertEquals(
+            setOf(
+                "androidx.work.impl.utils.ForceStopRunnable\$BroadcastReceiver",
+                "androidx.work.impl.background.systemalarm.RescheduleReceiver",
+                "androidx.work.impl.diagnostics.DiagnosticsReceiver",
+                "androidx.profileinstaller.ProfileInstallReceiver",
+            ),
+            names(merged, "receiver"),
+        )
+        val dumpReceivers = elements(merged, "receiver").filter {
+            it.getAttributeNS(android, "name") in setOf(
+                "androidx.profileinstaller.ProfileInstallReceiver",
+                "androidx.work.impl.diagnostics.DiagnosticsReceiver",
+            )
+        }
+        dumpReceivers.forEach { assertEquals("android.permission.DUMP", it.getAttributeNS(android, "permission")) }
         assertEquals(setOf("androidx.startup.InitializationProvider"), names(merged, "provider"))
         assertEquals("false", elements(merged, "provider").single().getAttributeNS(android, "exported"))
         assertEquals("signature", elements(merged, "permission").single().getAttributeNS(android, "protectionLevel"))
         assertEquals("$applicationId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION", names(merged, "permission").single())
         assertEquals(applicationId, merged.documentElement.getAttribute("package"))
-        assertEquals("4", merged.documentElement.getAttributeNS(android, "versionCode"))
+        assertEquals("6", merged.documentElement.getAttributeNS(android, "versionCode"))
         val gate = elements(merged, "meta-data").single { it.getAttributeNS(android, "name") == "$applicationId.MUTATIONS_ENABLED" }
-        assertEquals("false", gate.getAttributeNS(android, "value"))
+        assertEquals("true", gate.getAttributeNS(android, "value"))
         checkLauncher(merged)
     }
 }

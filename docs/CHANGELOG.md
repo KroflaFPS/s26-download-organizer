@@ -196,3 +196,35 @@ historical; the stricter Build 3.1 recovery rules supersede completion inference
   source/merged manifest contracts and absence of test-only adapters verified.
 - No owner signing credentials, emulator/device tests, hardware crash tests or
   real-file operational tests were used. All owner-facing APKs remain disabled.
+
+
+### Build 4 — Operational Background Auto-Organizer (`0.4.0` / `versionCode 5`)
+- Enabled operational file moves and `Undo` (`OperationPolicy.MUTATIONS_ENABLED = true`,
+  manifest metadata marker `com.kroflafps.s26downloadorganizer.MUTATIONS_ENABLED=true`,
+  and operational `AndroidOperationFiles` write/link/copy/remove/sync capabilities).
+- Added [`FileCategory`](app/src/main/java/com/kroflafps/s26downloadorganizer/domain/FileCategory.kt)
+  and [`FileClassifier`](app/src/main/java/com/kroflafps/s26downloadorganizer/classification/FileClassifier.kt)
+  to classify files locally using magic bytes, ZIP container entries (`AndroidManifest.xml`,
+  OOXML/ODF/EPUB markers), Android `PackageManager.getPackageArchiveInfo()`, and
+  extensions into auto-created `Organized/<Category>/` subfolders (`Installers`,
+  `Documents`, `Images`, `Audio`, `Videos`, `Archives`, `Other`).
+- Extended `OperationCoordinator.move(..., targetCategory = ...)` to route moves into
+  `Organized/<Category>/`, clean up tracked staging aliases after verified
+  `canConditionallyRemove` moves, and inject `ioDispatcher` for deterministic testing.
+- Added Room schema version `3` (`3.json`) with `observed_candidates` table and
+  `MIGRATION_2_3` preserving all v1/v2 operation history and recovery cursor state.
+- Added download-readiness stabilization (`DownloadReadinessTracker` requiring a 15s
+  unchanged size/mtime settle window and excluding partial/staging names), serialized
+  background sorting (`AutoSortEngine`), opportunistic `FileObserver` (`DownloadsWatcher`),
+  15-minute periodic + 15-second debounced `WorkManager` reconciliation (`SortScheduler` /
+  `SortWorker`), `MediaScannerConnection` refresh, and grouped summary notifications
+  (`SortNotifier` + `POST_NOTIFICATIONS` permission flow).
+- Updated dashboard UI (`DashboardScreen`, `OperationsViewModel`, `OperationHistory`)
+  with the `Auto sorting` switch, `Sort now` button, auto-detected category preview in
+  `Review move`, enabled `Move`/`Undo` actions, and Build 4 CI artifacts.
+- Updated `tools/sign_engineering_apk.py` and `tools/test_signing.py` to match Build 4
+  `MUTATIONS_ENABLED=true` manifest preflight.
+
+Build 4 physical-device behavior (Samsung Galaxy S26 Ultra / Android 17 live FUSE `fsync`
+semantics, One UI background battery optimization, and owner stable signing) remains
+untested until installed and verified on hardware.

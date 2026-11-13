@@ -19,6 +19,15 @@ data class JournalHistoryItem(@Embedded val record: OperationRecord, val undoReq
 @Entity(tableName = "recovery_cursor")
 data class RecoveryCursor(@PrimaryKey val slot: Int = 0, val lastId: String?, val ceilingId: String?)
 
+@Entity(tableName = "observed_candidates")
+data class ObservedCandidate(
+    @PrimaryKey val path: String,
+    val sizeBytes: Long,
+    val modifiedAtMillis: Long,
+    val firstStableAtMillis: Long,
+    val lastSeenAtMillis: Long,
+)
+
 @Dao
 abstract class JournalDao {
     @Query("SELECT * FROM operations WHERE id = :id")
@@ -87,9 +96,21 @@ abstract class JournalDao {
         update(JournalEntity(record))
         event(JournalEvent(record.id, record.revision, record.phase, record.updatedAt, record.error))
     }
+
+    @Query("SELECT * FROM observed_candidates WHERE path = :path")
+    abstract suspend fun getCandidate(path: String): ObservedCandidate?
+
+    @Query("SELECT * FROM observed_candidates")
+    abstract suspend fun allCandidates(): List<ObservedCandidate>
+
+    @Upsert
+    abstract suspend fun upsertCandidate(candidate: ObservedCandidate)
+
+    @Query("DELETE FROM observed_candidates WHERE path = :path")
+    abstract suspend fun deleteCandidate(path: String)
 }
 
-@Database(entities = [JournalEntity::class, JournalEvent::class, RecoveryCursor::class], version = 2, exportSchema = true)
+@Database(entities = [JournalEntity::class, JournalEvent::class, RecoveryCursor::class, ObservedCandidate::class], version = 3, exportSchema = true)
 abstract class JournalDatabase : RoomDatabase() {
     abstract fun journal(): JournalDao
 
@@ -103,9 +124,15 @@ abstract class JournalDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `observed_candidates` (`path` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `modifiedAtMillis` INTEGER NOT NULL, `firstStableAtMillis` INTEGER NOT NULL, `lastSeenAtMillis` INTEGER NOT NULL, PRIMARY KEY(`path`))")
+            }
+        }
+
         fun open(context: Context, name: String = "operation-journal.db"): JournalDatabase = Room.databaseBuilder(
             context.applicationContext, JournalDatabase::class.java, name,
-        ).addMigrations(MIGRATION_1_2).addCallback(object : Callback() {
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).addCallback(object : Callback() {
             override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // SQLite FULL requests stronger sync, but is not a power-loss guarantee.
                 db.execSQL("PRAGMA synchronous=FULL")
@@ -124,4 +151,18 @@ class RoomOperationJournal(private val dao: JournalDao) : OperationJournal {
     override suspend fun nextRecoveryPage(limit: Int) = dao.nextRecoveryPage(limit)
     override suspend fun advanceRecoveryCursor(lastId: String, ceilingId: String) = dao.advanceRecoveryCursor(lastId, ceilingId)
     override suspend fun incomplete(limit: Int) = dao.incomplete(limit).map { it.record.also { record -> record.requireConsistentEvidence() } }
+}
+
+interface CandidateStore {
+    suspend fun get(path: String): ObservedCandidate?
+    suspend fun all(): List<ObservedCandidate>
+    suspend fun upsert(candidate: ObservedCandidate)
+    suspend fun delete(path: String)
+}
+
+class RoomCandidateStore(private val dao: JournalDao) : CandidateStore {
+    override suspend fun get(path: String) = dao.getCandidate(path)
+    override suspend fun all() = dao.allCandidates()
+    override suspend fun upsert(candidate: ObservedCandidate) = dao.upsertCandidate(candidate)
+    override suspend fun delete(path: String) = dao.deleteCandidate(path)
 }

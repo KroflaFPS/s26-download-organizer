@@ -48,24 +48,26 @@ class RootedReadInspectorTest {
     }
     private fun root() = temporary.newFolder().toPath().also { Files.createDirectory(it.resolve("Download")) }
 
-    @Test fun actualReadOnlyAdapterReadsVerifiedMetadataAndHashWithoutCreatingDestinations() {
+    @Test fun adapterReadsVerifiedMetadataAndHashWithoutCreatingDestinationsOnPrepare() {
         val root = root(); val handles = Handles()
         val source = Files.write(root.resolve("Download/你好 file.bin"), byteArrayOf(0, 1, -1))
-        val adapter = AndroidOperationFiles(RootedReadInspector(root, handles) { true })
-        val result = adapter.prepare(source.toString(), OperationType.MOVE)
+        val adapter = AndroidOperationFiles(RootedReadInspector(root, handles, { true }), writable = { false })
+        try { adapter.prepare(source.toString(), OperationType.MOVE); fail("Unwritable adapter must fail prepare") } catch (_: OperationFailure) { }
+        val writableAdapter = AndroidOperationFiles(RootedReadInspector(root, handles, { true }))
+        val result = writableAdapter.prepare(source.toString(), OperationType.MOVE)
         assertEquals(3L, result.size)
         assertEquals("26a66b061e8f48f39927c312f25293959729eee95978e2892d49d3512a5cc092", result.hash)
         assertFalse(Files.exists(root.resolve("Organized")))
         assertArrayEquals(byteArrayOf(0, 1, -1), Files.readAllBytes(source))
         assertEquals(0, handles.active)
-        assertEquals(Observation.Missing, adapter.observe(root.resolve("Download/missing").toString(), 4))
-        assertFalse(adapter.canConditionallyRemove)
+        assertEquals(Observation.Missing, writableAdapter.observe(root.resolve("Download/missing").toString(), 4))
+        assertTrue(writableAdapter.canConditionallyRemove)
         try { adapter.reserveStage(root.resolve("Download/not-created").toString()); fail() } catch (_: OperationFailure) { }
         assertFalse(Files.exists(root.resolve("Download/not-created")))
     }
 
     @Test fun linksTraversalAndRelocatedRootCannotYieldTrustedEvidence() {
-        val root = root(); val handles = Handles(); val reader = RootedReadInspector(root, handles) { true }
+        val root = root(); val handles = Handles(); val reader = RootedReadInspector(root, handles, { true })
         val source = Files.write(root.resolve("Download/data"), byteArrayOf(1))
         val link = Files.createSymbolicLink(root.resolve("Download/alias"), source)
         val adapter = AndroidOperationFiles(reader)
@@ -81,7 +83,7 @@ class RootedReadInspectorTest {
         val handles = Handles()
         var changed = false
         handles.onRead = { if (!changed) { changed = true; Files.write(source, ByteArray(128 * 1024)) } }
-        val adapter = AndroidOperationFiles(RootedReadInspector(root, handles) { true })
+        val adapter = AndroidOperationFiles(RootedReadInspector(root, handles, { true }))
         assertEquals(Observation.Unverifiable, adapter.observe(source.toString(), 1))
         assertTrue(handles.bytesRead <= 2)
         assertEquals(0, handles.active)
@@ -97,7 +99,7 @@ class RootedReadInspectorTest {
     @Test fun revocationAndSameSizeReplacementNeverProduceTrustedSuccess() {
         val root = root(); val source = Files.write(root.resolve("Download/data"), byteArrayOf(1, 2))
         val handles = Handles(); var permission = true
-        val adapter = AndroidOperationFiles(RootedReadInspector(root, handles) { permission })
+        val adapter = AndroidOperationFiles(RootedReadInspector(root, handles, { permission }))
         handles.onRead = { permission = false }
         try { adapter.observe(source.toString(), 2); fail() } catch (_: OperationFailure) { }
         assertEquals(0, handles.active)

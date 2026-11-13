@@ -1,9 +1,12 @@
 package com.kroflafps.s26downloadorganizer.operations
 
+import com.kroflafps.s26downloadorganizer.domain.FileCategory
 import java.nio.file.FileAlreadyExistsException
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -19,12 +22,21 @@ class OperationCoordinator(
     private val clock: () -> Long = System::currentTimeMillis,
     private val checkpoint: (Checkpoint) -> Unit = {},
     private val operationMutex: Mutex = Mutex(),
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    @Volatile
+    var lastFailureDetail: String? = null
+        private set
 
-    suspend fun move(id: String, source: String, confirmedFinished: Boolean): OperationResult =
+    suspend fun move(
+        id: String,
+        source: String,
+        confirmedFinished: Boolean,
+        targetCategory: FileCategory = FileCategory.OTHER,
+    ): OperationResult =
         exclusive {
             if (!confirmedFinished) return@exclusive OperationResult.Rejected(OperationError.INVALID_REQUEST)
-            execute(id, source, OperationType.MOVE, null, null, true)
+            execute(id, source, OperationType.MOVE, null, null, true, targetCategory)
         }
 
     suspend fun undo(id: String, originalId: String, acceptUniqueName: Boolean): OperationResult = exclusive {
@@ -36,16 +48,18 @@ class OperationCoordinator(
         if (original?.undoEligible != true || journal.undoFor(originalId) != null) {
             return@exclusive OperationResult.Rejected(OperationError.CONFLICT)
         }
-        execute(id, requireNotNull(original.destinationPath), OperationType.UNDO, original, original.originalName, acceptUniqueName)
+        execute(id, requireNotNull(original.destinationPath), OperationType.UNDO, original, original.originalName, acceptUniqueName, null)
     }
 
     private suspend fun exclusive(block: suspend () -> OperationResult): OperationResult {
         if (!authorized()) return OperationResult.Blocked(OperationPolicy.GATE_REASON)
         if (!operationMutex.tryLock()) return OperationResult.Blocked("Another operation is running.")
         return try {
-            withContext(Dispatchers.IO) { block() }
+            withContext(ioDispatcher) { block() }
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (failure: OperationFailure) {
+            OperationResult.Rejected(failure.category)
         } catch (_: Exception) {
             // Includes journal read failures before intent. No filesystem writes occurred there.
             OperationResult.JournalUnavailable(null)
@@ -61,6 +75,7 @@ class OperationCoordinator(
         original: OperationRecord?,
         restoreName: String?,
         acceptUnique: Boolean,
+        targetCategory: FileCategory?,
     ): OperationResult {
         var current: OperationRecord? = null
         var stored = false
@@ -93,8 +108,16 @@ class OperationCoordinator(
                 else OperationResult.Rejected(OperationError.CONFLICT)
             }
             check()
-            val root = if (type == OperationType.MOVE) files.roots.downloads else files.roots.other
-            val path = OperationPolicy.sourcePath(sourcePath, root)
+            val destinationDir = if (type == OperationType.MOVE) {
+                files.roots.categoryDirectory(targetCategory ?: FileCategory.OTHER)
+            } else {
+                files.roots.downloads
+            }
+            val path = if (type == OperationType.MOVE) {
+                OperationPolicy.sourcePath(sourcePath, files.roots.downloads)
+            } else {
+                OperationPolicy.undoSourcePath(sourcePath, files.roots.organized)
+            }
             val source = files.prepare(path.toString(), type)
             if (source.path != path.toString() || source.identity.isBlank() || source.stamp.isBlank() || source.size < 0 || !source.hash.matches(Regex("[a-f0-9]{64}"))) {
                 throw OperationFailure(OperationError.UNTRUSTED_EVIDENCE)
@@ -103,8 +126,7 @@ class OperationCoordinator(
                     source.size != original.sourceSize || source.stamp != original.destinationStamp)) {
                 throw OperationFailure(OperationError.SOURCE_CHANGED)
             }
-            val targetDirectory = (if (type == OperationType.MOVE) files.roots.other else files.roots.downloads)
-                .toAbsolutePath().normalize()
+            val targetDirectory = destinationDir.toAbsolutePath().normalize()
             val name = restoreName ?: path.fileName.toString()
             OperationPolicy.candidate(name, 0)
             if (type == OperationType.UNDO && !acceptUnique && files.isOccupied(targetDirectory.resolve(name).toString())) {
@@ -127,7 +149,7 @@ class OperationCoordinator(
             check()
             persist(requireNotNull(current).copy(phase = Phase.ALLOCATING))
             mutationAttempted = true
-            files.ensureDestination(type)
+            files.ensureDestination(targetDirectory)
             checkpoint(Checkpoint.DIRECTORY_READY)
             check()
             val stage = requireNotNull(current).stagingPath
@@ -154,7 +176,7 @@ class OperationCoordinator(
                 check()
                 val candidate = targetDirectory.resolve(OperationPolicy.candidate(name, number)).toString()
                 if (candidate.toByteArray(Charsets.UTF_8).size > 4095) throw OperationFailure(OperationError.INVALID_REQUEST)
-                persist(requireNotNull(current).copy(destinationPath = candidate)) // Intent BEFORE link publication.
+                persist(requireNotNull(current).copy(destinationPath = candidate)) // Intent BEFORE publication.
                 val identity = try {
                     files.publishNoClobber(stage, stageIdentity, candidate)
                 } catch (_: FileAlreadyExistsException) {
@@ -162,8 +184,12 @@ class OperationCoordinator(
                     continue
                 }
                 checkpoint(Checkpoint.PUBLISHED)
+                // Remove temporary stage before measuring destination stamp so unlinking a hard link does not invalidate ctime.
+                if (files.canConditionallyRemove) {
+                    runCatching { files.cleanupStage(stage, stageIdentity) }
+                }
                 val evidence = files.verify(candidate, identity)
-                if (evidence.path != candidate || evidence.hash != source.hash || evidence.size != source.size || evidence.identity != stageIdentity) {
+                if (evidence.path != candidate || evidence.hash != source.hash || evidence.size != source.size || evidence.identity != identity) {
                     throw OperationFailure(OperationError.CONFLICT)
                 }
                 published = evidence
@@ -214,9 +240,10 @@ class OperationCoordinator(
             persist(requireNotNull(current).copy(phase = Phase.COMPLETED, sourceRemoved = true,
                 removalEvidence = "adapter-confirmed", completedAt = maxOf(clock(), requireNotNull(current).updatedAt)))
             checkpoint(Checkpoint.COMPLETED)
-            // Staging hard-link aliases are retained and journaled: no unsafe path cleanup.
             return OperationResult.Recorded(requireNotNull(current))
         } catch (failure: Exception) {
+            val detail = "${current?.phase ?: "PRE"}: ${failure::class.simpleName}: ${failure.message ?: ""}".trim()
+            lastFailureDetail = detail
             if (!stored) {
                 if (failure is CancellationException) throw failure
                 if (journalCall) return OperationResult.JournalUnavailable(id)

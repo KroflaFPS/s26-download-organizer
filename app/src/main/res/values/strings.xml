@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">S26 Download Organizer</string>
-    <string name="build_identifier">Build 3.1 · Engineering</string>
-    <string name="foundation_status">Foundation ready</string>
-    <string name="foundation_description">Automatic organizing is not active. Build 3.1 engineering: file changes are disabled by safety gates. Downloads inventory remains read-only.</string>
-    <string name="development_notice">Engineering build · Persistent history and recovery foundation</string>
+    <string name="build_identifier">Build 4 · v0.4.1</string>
+    <string name="foundation_status">Background sorting active</string>
+    <string name="foundation_description">Automatically classifies downloaded files and sorts them into Organized/Installers, Documents, Images, Audio, Videos, Archives, and Other in the background.</string>
+    <string name="development_notice">Runs locally on-device with a persistent recovery journal and Undo support</string>
     <string name="permission_title">Storage access required</string>
-    <string name="permission_explanation">All Files Access is intended for organizing downloaded files in later builds. Inventory reads only filenames, types, sizes and dates from Downloads. Recovery may read and hash journaled files locally within strict limits. It does not classify content, scan inside folders, or move, copy, rename or delete files.</string>
+    <string name="permission_explanation">All Files Access lets S26 Download Organizer read new files in Downloads and move them into Organized/ category folders on your phone. Everything runs locally and never leaves your device.</string>
     <string name="permission_navigation">Tap Open Settings and allow access for S26 Download Organizer. If a list of apps opens, choose this app. Return here when finished; access will be checked again.</string>
     <string name="open_settings">Open Settings</string>
     <string name="settings_unavailable">Storage settings could not be opened. Open your phone’s Settings, find Special app access → All files access, and choose S26 Download Organizer. Return here to check access again.</string>
-    <string name="unsupported_android">This build’s read-only inventory requires Android 11 or newer. On Android 8–10, the dashboard is available but Downloads access is not supported. No legacy storage permission is requested.</string>
+    <string name="unsupported_android">Downloads organization requires Android 11 or newer. On Android 8–10, the dashboard is available but Downloads access is not supported.</string>
     <string name="loading_inventory">Checking storage and reading Downloads…</string>
     <string name="refresh">Refresh</string>
     <string name="retry">Retry</string>
-    <string name="empty_inventory">Downloads is empty. Files added later will appear when you refresh.</string>
+    <string name="empty_inventory">Downloads is empty. New downloads will be sorted automatically into Organized/.</string>
     <string name="no_available_entries">No available entries could be listed. Some items changed or could not be read. Try refreshing.</string>
     <plurals name="partial_inventory">
         <item quantity="one">%d item disappeared or had unavailable metadata during this scan. This list may be incomplete; refresh to try again.</item>
@@ -23,6 +23,10 @@
     <plurals name="inventory_count">
         <item quantity="one">%d entry in Downloads</item>
         <item quantity="other">%d entries in Downloads</item>
+    </plurals>
+    <plurals name="sorted_notification_title">
+        <item quantity="one">Sorted %d download</item>
+        <item quantity="other">Sorted %d downloads</item>
     </plurals>
     <string name="type_file">File</string>
     <string name="type_directory">Folder · contents not scanned</string>
